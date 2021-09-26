@@ -1,0 +1,182 @@
+﻿@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Xsrf
+@functions{
+    public string GetAntiXsrfRequestToken()
+    {
+        return Xsrf.GetAndStoreTokens(Context).RequestToken;
+    }
+}
+
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Notifications</h1>
+    <form style="max-width: 400px;margin: auto;">
+        <div class="form-group">
+            <label for="title">Title</label>
+            <input type="text" class="form-control" id="title">
+        </div>
+
+        <div class="form-group">
+            <label for="content">Content</label>
+            <textarea class="form-control" id="content" rows="3"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="users">Users</label>
+            <select multiple class="form-control" id="users">
+            </select>
+        </div>
+
+        <a href="javascript:addNotification()" class="btn btn-primary">Submit</a>
+    </form>
+
+    <hr />
+    <hr />
+    <div id="wrapper"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gridjs/dist/gridjs.umd.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/gridjs/dist/theme/mermaid.min.css" rel="stylesheet" />
+
+@section Scripts
+{
+    <script>
+        var grid, notificationData, notificationUsers;
+        $(function () {
+            console.log('Ready');
+            getUsers();
+            grid = new gridjs.Grid({
+                columns: [{ id: "notificationId", name: "Notification Id", }, { id: "userId", name: "User Id"}],
+                data: [],
+                search: true,
+            });
+            grid.render(document.getElementById("wrapper"));
+            getNotificationHistories();
+        });
+
+        function getUsers() {
+            $.ajax({
+                type: "GET",
+                url: '/Api/Users',
+                success: function (res) {
+                    if (res.success) {
+                        console.log(res);
+                        $.each(res.data, function (k, v) {
+                            $('#users').append(`<option value="${v.id}">${v.username}</option>`);
+                        });
+                    } else {
+                        console.error(res);
+                        alert(res.error);
+
+                    }
+                },
+                error: function (e) {
+                    console.error(e);
+                    alert(e);
+                },
+                dataType: "json",
+                contentType: "application/json"
+            });
+        }
+
+        function addNotification() {
+            notificationData = {
+                title: $('#title').val(),
+                content: $('#content').val(),
+            };
+            for (const property in notificationData) {
+                if (notificationData[property] == null || notificationData[property] == '') {
+                    alert(property + ' required!');
+                    return;
+                }
+            }
+
+            notificationUsers = $('#users').val();
+            if (notificationUsers == null || notificationUsers == '' || notificationUsers.length == 0) {
+                alert('Users required!');
+                return;
+            }
+
+            $.ajax({
+                type: "POST",
+                headers: { "RequestVerificationToken": '@GetAntiXsrfRequestToken()' },
+                url: '/Api/Notifications',
+                data: JSON.stringify(notificationData),
+                success: function (res) {
+                    if (res.success) {
+                        console.log(res);
+                        addNotificationHistory(res.data.id);
+                        //alert('Success');
+                    } else {
+                        console.error(res);
+                        alert(res.error);
+                    }
+                },
+                error: function (e) {
+                    console.error(e);
+                    alert(e);
+                },
+                dataType: "json",
+                contentType: "application/json"
+            });
+        }
+
+        function addNotificationHistory(id) {
+            var data = [];
+            for (var ii = 0; ii < notificationUsers.length; ii++) {
+                data.push({ notificationId: id, userId: notificationUsers[ii] });
+            }
+
+            console.log(data)
+
+            $.ajax({
+                type: "POST",
+                headers: { "RequestVerificationToken": '@GetAntiXsrfRequestToken()' },
+                url: '/Api/NotificationHistories',
+                //traditional: true,
+                data: JSON.stringify(data),
+                success: function (res) {
+                    if (res.success) {
+                        console.log(res);
+                        getNotificationHistories();
+                        alert('Success');
+                    } else {
+                        console.error(res);
+                        alert(res.error);
+                    }
+                },
+                error: function (e) {
+                    console.error(e);
+                    alert(e);
+                },
+                dataType: "json",
+                contentType: "application/json; charset=utf-8"
+            });
+        }
+
+        function getNotificationHistories() {
+            $.ajax({
+                type: "GET",
+                url: '/Api/NotificationHistories',
+                success: function (res) {
+                    if (res.success) {
+                        grid.updateConfig({
+                            data: res.data
+                        }).forceRender();
+                    } else {
+                        console.error(res);
+                        alert(res.error);
+                    }
+                },
+                error: function (e) {
+                    console.error(e);
+                    alert(e);
+                },
+                dataType: "json",
+                contentType: "application/json"
+            });
+        }
+    </script>
+}
