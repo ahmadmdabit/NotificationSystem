@@ -1,0 +1,94 @@
+{
+  "ReRoutes": [
+    // Users ===============================================
+    {
+      "DownstreamPathTemplate": "/api/Users",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44344
+        }
+      ],
+      "UpstreamPathTemplate": "/Users",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/Users/{id}",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44344
+        }
+      ],
+      "UpstreamPathTemplate": "/Users/{id}",
+      "UpstreamHttpMethod": [ "GET", "DELETE" ]
+    },
+    // Notifications ========================================
+    {
+      "DownstreamPathTemplate": "/api/Notifications",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44314
+        }
+      ],
+      "UpstreamPathTemplate": "/Notifications",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/Notifications/{id}",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44314
+        }
+      ],
+      "UpstreamPathTemplate": "/Notifications/{id}",
+      "UpstreamHttpMethod": [ "GET", "DELETE" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/Notifications/Send",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44314
+        }
+      ],
+      "UpstreamPathTemplate": "/Notifications/Send",
+      "UpstreamHttpMethod": [ "POST" ]
+    },
+    // NotificationHistories ========================================
+    {
+      "DownstreamPathTemplate": "/api/NotificationHistories",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44314
+        }
+      ],
+      "UpstreamPathTemplate": "/NotificationHistories",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/NotificationHistories/{id}",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 44314
+        }
+      ],
+      "UpstreamPathTemplate": "/NotificationHistories/{id}",
+      "UpstreamHttpMethod": [ "GET", "DELETE" ]
+    }
+  ],
+  "GlobalConfiguration": {
+    "BaseUrl": "https://localhost:44315"
+  }
+}
