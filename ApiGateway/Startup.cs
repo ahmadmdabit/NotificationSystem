@@ -25,33 +25,43 @@ namespace ApiGateway
 
         public IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
-            services.AddOcelot().AddAdministration("/administration", "8715A2134806A87B89547B79677B9E16877380FD0797EB331658153422863CC8");
+            services.AddHealthChecks();
+            var adminToken = Configuration["Ocelot:AdministrationToken"];
+            if (!string.IsNullOrEmpty(adminToken))
+            {
+                services.AddOcelot().AddAdministration("/administration", adminToken);
+            }
+            else
+            {
+                services.AddOcelot();
+            }
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public async void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
             }
 
-            app.UseHttpsRedirection();
+            if (Environment.GetEnvironmentVariable("DISABLE_HTTPS_REDIRECT") != "true")
+            {
+                app.UseHttpsRedirection();
+            }
 
             app.UseRouting();
-
             app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
+                endpoints.MapHealthChecks("/health");
             });
 
-            await app.UseOcelot().ConfigureAwait(false);
+            app.UseOcelot().GetAwaiter().GetResult();
         }
     }
 }

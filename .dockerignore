@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/.vs/
+**/.vscode/
+**/packages/
+**/Publish/
+*.user
+*.suo
+.git/
+.gitignore
+LICENSE.md
+*.md
+!README.md
+.env

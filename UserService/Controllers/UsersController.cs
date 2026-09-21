@@ -7,8 +7,8 @@ using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -27,16 +27,33 @@ namespace UserService.Controllers
             _appSettings = options.Value;
         }
 
+        [HttpPost]
+        public override Task<ActionResult<ApiResult<User>>> Post([FromBody] User entity)
+            => Task.FromResult<ActionResult<ApiResult<User>>>(
+                this.BadRequestApi("Use /api/Users/Register to create users."));
+
+        [HttpPost("Bulk")]
+        public override Task<ActionResult<ApiResult<User>>> PostBulk([FromBody] IEnumerable<User> entities)
+            => Task.FromResult<ActionResult<ApiResult<User>>>(
+                this.BadRequestApi("Use /api/Users/Register to create users."));
+
+        [HttpPut]
+        public override Task<ActionResult<ApiResult<User>>> Put([FromBody] User entity)
+            => Task.FromResult<ActionResult<ApiResult<User>>>(
+                this.BadRequestApi("User updates require a dedicated endpoint (not implemented)."));
+
         [AllowAnonymous]
         // POST: api/[controller]/Register
         [HttpPost("Register")]
         public async Task<ActionResult<ApiResult<User>>> PostRegister([FromBody] RegisterModel model)
         {
-            this._logger.LogInformation($"[PostRegister] [{this._ip}] {JsonConvert.SerializeObject(model)}");
+            this._logger.LogInformation($"[PostRegister] [{this._ip}] Username={model?.Username}");
             var entity = await (this._business as UserBusiness).RegisterAsync(model).ConfigureAwait(false);
             if (entity != null)
             {
-                return Ok(new ApiResult<User>(true, null));
+                entity.PasswordHash = null;
+                entity.PasswordSalt = null;
+                return Ok(new ApiResult<User>(true, entity));
             }
             return this.BadRequestApi();
         }
@@ -46,7 +63,7 @@ namespace UserService.Controllers
         [HttpPost("Authenticate")]
         public async Task<ActionResult<ApiResult<User>>> PostAuthenticate([FromBody] AuthenticateModel model)
         {
-            this._logger.LogInformation($"[PostAuthenticate] [{this._ip}] {JsonConvert.SerializeObject(model)}");
+            this._logger.LogInformation($"[PostAuthenticate] [{this._ip}] Username={model?.Username}");
             var entity = await (this._business as UserBusiness).AuthenticateAsync(model).ConfigureAwait(false);
             if (entity != null)
             {

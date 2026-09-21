@@ -1,5 +1,6 @@
 ﻿using BLL.Business;
 using Common.Helpers;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.Logging;
@@ -10,6 +11,7 @@ using System.Threading.Tasks;
 namespace API.Controller
 {
     [Produces("application/json")]
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public abstract class BaseApiController<T> : ControllerBase, IApiController<T> where T : class
@@ -102,13 +104,13 @@ namespace API.Controller
         protected virtual ActionResult<ApiResult<T>> NotFoundApi(string message = null)
         {
             this._logger.LogInformation(message ?? "NotFound");
-            return Ok(new ApiResult<T>(false, null, new NotFoundResult().StatusCode, message ?? "NotFound"));
+            return NotFound(new ApiResult<T>(false, null, new NotFoundResult().StatusCode, message ?? "NotFound"));
         }
 
         protected virtual ActionResult<ApiResult<T>> BadRequestApi(string message = null)
         {
             this._logger.LogInformation(message ?? "BadRequest");
-            return Ok(new ApiResult<T>(false, null, new BadRequestResult().StatusCode, message ?? "BadRequest"));
+            return BadRequest(new ApiResult<T>(false, null, new BadRequestResult().StatusCode, message ?? "BadRequest"));
         }
     }
 }

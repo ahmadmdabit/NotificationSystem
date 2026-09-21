@@ -1,5 +1,4 @@
 ﻿using Common.Helpers;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using RestSharp;
@@ -9,82 +8,78 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using UI.Models;
+using UI.Services;
 
 namespace UI.Controllers
 {
     [Route("Api")]
     public class ApiController : Controller
     {
-        private readonly RestClient _RestClient = new RestClient("https://localhost:44315");
+        private readonly IGatewayApiClient _gateway;
+
+        public ApiController(IGatewayApiClient gateway)
+        {
+            _gateway = gateway;
+        }
 
         #region Users
         [HttpGet("Users")]
-        public async Task<ActionResult> GetUsersAsync()
+        public Task<ActionResult> GetUsersAsync(CancellationToken cancellationToken)
         {
-            try
-            {
-                return Ok(await _RestClient.GetAsync<dynamic>(new RestRequest("Users", DataFormat.Json), CancellationToken.None));
-            }
-            catch (Exception exc)
-            {
-
-                return Ok(new ApiResult<dynamic>(false, error: new ErrorResult(0, exc)));
-            }
-        } 
+            return ForwardAsync(() => _gateway.GetAsync("Users", cancellationToken));
+        }
         #endregion
 
         #region Notifications
         [HttpPost("Notifications")]
         [ValidateAntiForgeryToken]
-        public async Task<ActionResult> PostNotificationsAsync([FromBody] NotificationModel notificationModel)
+        public Task<ActionResult> PostNotificationsAsync([FromBody] NotificationModel notificationModel, CancellationToken cancellationToken)
         {
-            try
-            {
-                return Ok(await _RestClient.PostAsync<dynamic>(new RestRequest("Notifications", DataFormat.Json).AddJsonBody(notificationModel), CancellationToken.None));
-            }
-            catch (Exception exc)
-            {
-
-                return Ok(new ApiResult<dynamic>(false, error: new ErrorResult(0, exc)));
-            }
-        } 
+            return ForwardAsync(() => _gateway.PostAsync("Notifications", notificationModel, cancellationToken));
+        }
         #endregion
 
         #region NotificationHistories
         [HttpGet("NotificationHistories")]
-        public async Task<ActionResult> GetNotificationHistoriesAsync()
+        public Task<ActionResult> GetNotificationHistoriesAsync(CancellationToken cancellationToken)
         {
-            try
-            {
-                return Ok(await _RestClient.GetAsync<dynamic>(new RestRequest("NotificationHistories", DataFormat.Json), CancellationToken.None));
-            }
-            catch (Exception exc)
-            {
-
-                return Ok(new ApiResult<dynamic>(false, error: new ErrorResult(0, exc)));
-            }
+            return ForwardAsync(() => _gateway.GetAsync("NotificationHistories", cancellationToken));
         }
 
         [HttpPost("NotificationHistories")]
         [ValidateAntiForgeryToken]
-        public async Task<ActionResult> PostNotificationHistoriesAsync([FromBody] object notificationHistoryModels)
+        public Task<ActionResult> PostNotificationHistoriesAsync([FromBody] object notificationHistoryModels, CancellationToken cancellationToken)
+        {
+            return ForwardAsync(() => _gateway.PostAsync("Notifications/Send", notificationHistoryModels, cancellationToken));
+        }
+        #endregion
+
+        // T2: internal for unit testing
+        internal async Task<ActionResult> ForwardAsync(Func<Task<IRestResponse>> send)
         {
             try
             {
-                var models = JsonConvert.DeserializeObject<IEnumerable<NotificationHistoryModel>>(notificationHistoryModels.ToString());
-                if (models == null || !models.Any())
-                {
-                    return Ok(new ApiResult<dynamic>(false, error: new ErrorResult(0, "Null argument!")));
+                var response = await send().ConfigureAwait(false);
+                var status = (int)response.StatusCode;
+                if (status < 100)
+                    return StatusCode(502, new ApiResult<dynamic>(false, error: new ErrorResult(0, response.ErrorMessage ?? "Gateway request failed.")));
 
-                }
-                return Ok(await _RestClient.PostAsync<dynamic>(new RestRequest("Notifications/Send", DataFormat.Json).AddJsonBody(models), CancellationToken.None));
+                if (string.IsNullOrWhiteSpace(response.Content))
+                    return StatusCode(status);
+
+                // S4: respect actual content type from the response
+                var contentType = response.ContentType ?? "application/json";
+                return new ContentResult
+                {
+                    StatusCode = status,
+                    Content = response.Content,
+                    ContentType = contentType
+                };
             }
             catch (Exception exc)
             {
-
-                return Ok(new ApiResult<dynamic>(false, error: new ErrorResult(0, exc)));
+                return StatusCode(500, new ApiResult<dynamic>(false, error: new ErrorResult(0, exc)));
             }
-        } 
-        #endregion
+        }
     }
 }

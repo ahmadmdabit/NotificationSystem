@@ -1,9 +1,10 @@
 using BLL.Business;
 using Common.Helpers;
 using DAL.Repository;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Data.SqlClient;
@@ -11,8 +12,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System;
+using System.Text;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -32,15 +35,32 @@ namespace UserService
 
         public IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
             services.Configure<AppSettings>(Configuration.GetSection("AppSettings"));
-            services.AddTransient<IDbConnection>(o => new SqlConnection(Configuration["AppSettings:SqlConnectionString"]));
+            services.AddScoped<IDbConnection>(o => new SqlConnection(Configuration["AppSettings:SqlConnectionString"]));
 
             services.AddSwaggerGen(c => c.SwaggerDoc("v1", new OpenApiInfo { Title = "User Service API", Version = "v1" }));
-            services.AddCors();
+            services.AddHealthChecks();
             services.AddControllers();
+
+            var secret = Configuration["AppSettings:Secret"];
+            if (string.IsNullOrWhiteSpace(secret))
+                throw new InvalidOperationException(
+                    "AppSettings:Secret is not configured. Generate one: openssl rand -hex 32");
+
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options => options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(secret)),
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.FromMinutes(1)
+                });
+
+            services.AddHostedService<DatabaseMigration>();
 
             services.AddScoped<IRepository<User>, UserRepository>();
             services.AddScoped<IBusiness<User>, UserBusiness>();
@@ -48,7 +68,6 @@ namespace UserService
             services.AddSingleton<IActionContextAccessor, ActionContextAccessor>();
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             if (env.IsDevelopment())
@@ -56,23 +75,28 @@ namespace UserService
                 app.UseDeveloperExceptionPage();
             }
 
-            app.UseHttpsRedirection();
+            if (Environment.GetEnvironmentVariable("DISABLE_HTTPS_REDIRECT") != "true")
+            {
+                app.UseHttpsRedirection();
+            }
 
             app.UseRouting();
 
             app.UseCors(x => x
-                .AllowAnyOrigin()
                 .AllowAnyMethod()
-                .AllowAnyHeader());
+                .AllowAnyHeader()
+                .WithOrigins(Configuration["AppSettings:AllowedCorsOrigins"] ?? "http://localhost:8080"));
 
             app.UseSwagger();
             app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "User Service API V1"));
 
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
+                endpoints.MapHealthChecks("/health");
             });
         }
     }

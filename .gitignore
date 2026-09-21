@@ -223,6 +223,9 @@ UpgradeLog*.htm
 #*.mdf
 #*.ldf
 
+# User-specific development settings
+**/appsettings.Development.json
+
 # Business Intelligence projects
 *.rdl.data
 *.bim.layout
@@ -275,3 +278,4 @@ __pycache__/
 # End of https://www.toptal.com/developers/gitignore/api/aspnetcore
 *.zip
 
+.env

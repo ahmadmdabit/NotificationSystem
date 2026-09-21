@@ -2,87 +2,87 @@
   "ReRoutes": [
     {
       "DownstreamPathTemplate": "/api/Users/Register",
-      "DownstreamScheme": "http",
+      "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [
-        { "Host": "userservice", "Port": 8080 }
+        { "Host": "localhost", "Port": 44344 }
       ],
       "UpstreamPathTemplate": "/Users/Register",
       "UpstreamHttpMethod": [ "POST" ]
     },
     {
       "DownstreamPathTemplate": "/api/Users/Authenticate",
-      "DownstreamScheme": "http",
+      "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [
-        { "Host": "userservice", "Port": 8080 }
+        { "Host": "localhost", "Port": 44344 }
       ],
       "UpstreamPathTemplate": "/Users/Authenticate",
       "UpstreamHttpMethod": [ "POST" ]
     },
     {
       "DownstreamPathTemplate": "/api/Users",
-      "DownstreamScheme": "http",
+      "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [
-        { "Host": "userservice", "Port": 8080 }
+        { "Host": "localhost", "Port": 44344 }
       ],
       "UpstreamPathTemplate": "/Users",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT" ]
     },
     {
       "DownstreamPathTemplate": "/api/Users/{id}",
-      "DownstreamScheme": "http",
+      "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [
-        { "Host": "userservice", "Port": 8080 }
+        { "Host": "localhost", "Port": 44344 }
       ],
       "UpstreamPathTemplate": "/Users/{id}",
       "UpstreamHttpMethod": [ "GET", "DELETE" ]
     },
     {
       "DownstreamPathTemplate": "/api/Notifications",
-      "DownstreamScheme": "http",
+      "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [
-        { "Host": "notificationservice", "Port": 8080 }
+        { "Host": "localhost", "Port": 44314 }
       ],
       "UpstreamPathTemplate": "/Notifications",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT" ]
     },
     {
       "DownstreamPathTemplate": "/api/Notifications/{id}",
-      "DownstreamScheme": "http",
+      "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [
-        { "Host": "notificationservice", "Port": 8080 }
+        { "Host": "localhost", "Port": 44314 }
       ],
       "UpstreamPathTemplate": "/Notifications/{id}",
       "UpstreamHttpMethod": [ "GET", "DELETE" ]
     },
     {
       "DownstreamPathTemplate": "/api/Notifications/Send",
-      "DownstreamScheme": "http",
+      "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [
-        { "Host": "notificationservice", "Port": 8080 }
+        { "Host": "localhost", "Port": 44314 }
       ],
       "UpstreamPathTemplate": "/Notifications/Send",
       "UpstreamHttpMethod": [ "POST" ]
     },
     {
       "DownstreamPathTemplate": "/api/NotificationHistories",
-      "DownstreamScheme": "http",
+      "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [
-        { "Host": "notificationservice", "Port": 8080 }
+        { "Host": "localhost", "Port": 44314 }
       ],
       "UpstreamPathTemplate": "/NotificationHistories",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT" ]
     },
     {
       "DownstreamPathTemplate": "/api/NotificationHistories/{id}",
-      "DownstreamScheme": "http",
+      "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [
-        { "Host": "notificationservice", "Port": 8080 }
+        { "Host": "localhost", "Port": 44314 }
       ],
       "UpstreamPathTemplate": "/NotificationHistories/{id}",
       "UpstreamHttpMethod": [ "GET", "DELETE" ]
     }
   ],
   "GlobalConfiguration": {
-    "BaseUrl": "http://0.0.0.0:8080"
+    "BaseUrl": "https://localhost:44315"
   }
 }
