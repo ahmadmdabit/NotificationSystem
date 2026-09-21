@@ -219,9 +219,9 @@ Backup*/
 UpgradeLog*.XML
 UpgradeLog*.htm
 
-# SQL Server files
-#*.mdf
-#*.ldf
+# SQL Server files (LocalDB database files are never committed; schema is created by DatabaseMigrationBase)
+*.mdf
+*.ldf
 
 # User-specific development settings
 **/appsettings.Development.json
@@ -279,3 +279,6 @@ __pycache__/
 *.zip
 
 .env
+
+# IdentityServer developer signing credentials (auto-generated, contains private key material)
+**/tempkey.rsa

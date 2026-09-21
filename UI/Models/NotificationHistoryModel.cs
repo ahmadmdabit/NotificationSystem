@@ -1,16 +1,14 @@
-﻿using System;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
-namespace UI.Models
+namespace UI.Models;
+
+public class NotificationHistoryModel
 {
-    public class NotificationHistoryModel
-    {
-        [Required]
-        public long NotificationId { get; set; }
-        [Required]
-        public long UserId { get; set; }
-        public DateTime? CreatedAt { get; set; }
-        public DateTime? UpdatedAt { get; set; }
-        public bool IsDeleted { get; set; }
-    }
+    [Required]
+    public long NotificationId { get; set; }
+    [Required]
+    public long UserId { get; set; }
+    public DateTime? CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public bool IsDeleted { get; set; }
 }

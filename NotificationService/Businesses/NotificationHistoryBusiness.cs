@@ -1,13 +1,16 @@
 ﻿using BLL.Business;
+
 using DAL.Repository;
+
 using NotificationService.Entities;
 
-namespace NotificationService.Businesses
+namespace NotificationService.Businesses;
+
+public sealed class NotificationHistoryBusiness
+    : BaseCompositeBusiness<NotificationHistory, long, long>
 {
-    public class NotificationHistoryBusiness : BaseBusiness<NotificationHistory>
+    public NotificationHistoryBusiness(ICompositeRepository<NotificationHistory, long, long> repository)
+        : base(repository)
     {
-        public NotificationHistoryBusiness(IRepository<NotificationHistory> repository) : base(repository)
-        {
-        }
     }
 }

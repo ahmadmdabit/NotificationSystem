@@ -32,6 +32,12 @@ services:
       - AppSettings__Secret=${JWT_SECRET:?JWT_SECRET is required}
       - DISABLE_HTTPS_REDIRECT=true
       - AppSettings__SqlConnectionString=Server=sqlserver;Database=UserDB;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -51,6 +57,12 @@ services:
       - AppSettings__Secret=${JWT_SECRET:?JWT_SECRET is required}
       - DISABLE_HTTPS_REDIRECT=true
       - AppSettings__SqlConnectionString=Server=sqlserver;Database=NotificationDB;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -66,7 +78,6 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
-      - Ocelot__AdministrationToken=${ADMIN_TOKEN:-}
       - DISABLE_HTTPS_REDIRECT=true
     ports:
       - "8081:8080"

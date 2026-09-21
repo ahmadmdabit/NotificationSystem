@@ -1,87 +1,104 @@
-﻿using BLL.Business;
+﻿using System.Security.Cryptography;
+
+using BLL.Business;
+
 using DAL.Repository;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+
 using UserService.Entities;
 using UserService.Models;
 
-namespace UserService.Businesses
+namespace UserService.Businesses;
+
+public class UserBusiness : BaseBusiness<User, long>
 {
-    public class UserBusiness : BaseBusiness<User>
+    // OWASP recommended minimum for PBKDF2-HMAC-SHA512
+    private const int SaltByteSize = 32;       // 256-bit salt
+    private const int HashByteSize = 64;       // 512-bit hash
+    private const int Iterations = 600000;
+
+    public UserBusiness(IRepository<User, long> repository) : base(repository)
     {
-        public UserBusiness(IRepository<User> repository) : base(repository)
-        {
-        }
+    }
 
-        public override async Task<IEnumerable<User>> GetAsync()
-        {
-            return await this._repository.GetAsync("Id, Username, CreatedAt, UpdatedAt, IsDeleted").ConfigureAwait(false);
-        }
+    // True overrides of the generic base — restores the safe column projection that
+    // prevents PasswordHash/PasswordSalt/Token from leaking through GET /api/Users.
+    public override async Task<IEnumerable<User>> GetAsync(string include = "*", CancellationToken cancellationToken = default)
+    {
+        return await this.Repository.GetAsync("Id, Username, CreatedAt, UpdatedAt, IsDeleted", cancellationToken).ConfigureAwait(false);
+    }
 
-        public override async Task<User> GetAsync(long id)
-        {
-            return await this._repository.GetAsync(id, "Id, Username, CreatedAt, UpdatedAt, IsDeleted").ConfigureAwait(false);
-        }
+    public override async Task<User> GetAsync(long id, string include = "*", CancellationToken cancellationToken = default)
+    {
+        return await this.Repository.GetAsync(id, "Id, Username, CreatedAt, UpdatedAt, IsDeleted", cancellationToken).ConfigureAwait(false);
+    }
 
-        public async Task<User> RegisterAsync(RegisterModel model)
+    public async Task<User?> RegisterAsync(RegisterModel model)
+    {
+        if (string.IsNullOrEmpty(model.Username) || string.IsNullOrEmpty(model.Password))
+            return null;
+        var entities = (await this.Repository.GetAsync("Username", model.Username).ConfigureAwait(false))?.ToList();
+        if (entities?.Count > 0)
         {
-            if (string.IsNullOrEmpty(model.Username) || string.IsNullOrEmpty(model.Password))
-                return null;
-            var entities = (await this._repository.GetAsync("Username", model.Username).ConfigureAwait(false))?.ToList();
-            if (entities?.Count > 0)
-            {
-                return null;
-            }
-            byte[] passwordHash, passwordSalt;
-            CreatePasswordHash(model.Password, out passwordHash, out passwordSalt);
-            return await this._repository.InsertAsync(new User { Username = model.Username, PasswordHash = passwordHash, PasswordSalt = passwordSalt }).ConfigureAwait(false);
-        }
-
-        public async Task<User> AuthenticateAsync(AuthenticateModel model)
-        {
-            if (string.IsNullOrEmpty(model.Username) || string.IsNullOrEmpty(model.Password))
-                return null;
-
-            var entities = (await this._repository.GetAsync("Username", model.Username).ConfigureAwait(false))?.ToList();
-            if (entities?.Count > 0)
-            {
-                if (VerifyPasswordHash(model.Password, entities[0].PasswordHash, entities[0].PasswordSalt))
-                    return entities[0];
-            }
             return null;
         }
+        byte[] passwordHash, passwordSalt;
+        CreatePasswordHash(model.Password, out passwordHash, out passwordSalt);
+        return await this.Repository.InsertAsync(new User { Username = model.Username, PasswordHash = passwordHash, PasswordSalt = passwordSalt }).ConfigureAwait(false);
+    }
 
-        private static void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
+    public async Task<User?> AuthenticateAsync(AuthenticateModel model)
+    {
+        if (string.IsNullOrEmpty(model.Username) || string.IsNullOrEmpty(model.Password))
+            return null;
+
+        var entities = (await this.Repository.GetAsync("Username", model.Username).ConfigureAwait(false))?.ToList();
+        if (entities?.Count > 0)
         {
-            if (password == null) throw new ArgumentNullException("password");
-            if (string.IsNullOrWhiteSpace(password)) throw new ArgumentException("Value cannot be empty or whitespace only string.", "password");
+            if (VerifyPasswordHash(model.Password, entities[0].PasswordHash, entities[0].PasswordSalt))
+                return entities[0];
+        }
+        return null;
+    }
 
-            using (var hmac = new System.Security.Cryptography.HMACSHA512())
-            {
-                passwordSalt = hmac.Key;
-                passwordHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
-            }
+    // PBKDF2-HMAC-SHA512 password hashing with configurable work factor
+    private static void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
+    {
+        if (password == null) throw new ArgumentNullException(nameof(password));
+        if (string.IsNullOrWhiteSpace(password)) throw new ArgumentException("Value cannot be empty or whitespace only string.", nameof(password));
+
+        using (var rng = RandomNumberGenerator.Create())
+        {
+            passwordSalt = new byte[SaltByteSize];
+            rng.GetBytes(passwordSalt);
         }
 
-        private static bool VerifyPasswordHash(string password, byte[] storedHash, byte[] storedSalt)
-        {
-            if (password == null) throw new ArgumentNullException("password");
-            if (string.IsNullOrWhiteSpace(password)) throw new ArgumentException("Value cannot be empty or whitespace only string.", "password");
-            if (storedHash.Length != 64) throw new ArgumentException("Invalid length of password hash (64 bytes expected).", "passwordHash");
-            if (storedSalt.Length != 128) throw new ArgumentException("Invalid length of password salt (128 bytes expected).", "passwordHash");
+        passwordHash = new byte[HashByteSize];
 
-            using (var hmac = new System.Security.Cryptography.HMACSHA512(storedSalt))
-            {
-                var computedHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
-                for (int i = 0; i < computedHash.Length; i++)
-                {
-                    if (computedHash[i] != storedHash[i]) return false;
-                }
-            }
+        Rfc2898DeriveBytes.Pbkdf2(
+            password,               // ReadOnlySpan<char> or ReadOnlySpan<byte>
+            passwordSalt,           // ReadOnlySpan<byte>
+            passwordHash,           // Span<byte> destination
+            Iterations,
+            HashAlgorithmName.SHA512);
+    }
 
-            return true;
-        }
+    // Constant-time password verification prevents timing attacks
+    private static bool VerifyPasswordHash(string password, byte[] storedHash, byte[] storedSalt)
+    {
+        if (password == null) throw new ArgumentNullException(nameof(password));
+        if (string.IsNullOrWhiteSpace(password)) throw new ArgumentException("Value cannot be empty or whitespace only string.", nameof(password));
+        if (storedHash == null || storedHash.Length != HashByteSize) throw new ArgumentException($"Invalid length of password hash ({HashByteSize} bytes expected).", nameof(storedHash));
+        if (storedSalt == null || storedSalt.Length != SaltByteSize) throw new ArgumentException($"Invalid length of password salt ({SaltByteSize} bytes expected).", nameof(storedSalt));
+
+        byte[] computedHash = new byte[HashByteSize];
+
+        Rfc2898DeriveBytes.Pbkdf2(
+            password,               // ReadOnlySpan<char> or ReadOnlySpan<byte>
+            storedSalt,           // ReadOnlySpan<byte>
+            computedHash,           // Span<byte> destination
+            Iterations,
+            HashAlgorithmName.SHA512);
+
+        return CryptographicOperations.FixedTimeEquals(computedHash, storedHash);
     }
 }

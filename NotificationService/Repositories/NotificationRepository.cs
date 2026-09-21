@@ -1,13 +1,14 @@
-﻿using DAL.Repository;
-using NotificationService.Entities;
-using System.Data;
+﻿using System.Data;
 
-namespace NotificationService.Repositories
+using DAL.Repository;
+
+using NotificationService.Entities;
+
+namespace NotificationService.Repositories;
+
+public class NotificationRepository : BaseRepository<Notification, long>
 {
-    public class NotificationRepository : BaseRepository<Notification>
+    public NotificationRepository(IDbConnection dbConnection) : base(dbConnection)
     {
-        public NotificationRepository(IDbConnection dbConnection) : base(dbConnection)
-        {
-        }
     }
 }

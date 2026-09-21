@@ -1,22 +1,24 @@
 ﻿using Common.Helpers;
+
+using DAL.Entity;
+
 using Microsoft.AspNetCore.Mvc;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
-namespace API.Controller
+namespace API.Controller;
+
+public interface IApiController<T, in TKey>
+    where T : class, IEntity<T, TKey>, new()
+    where TKey : notnull
 {
-    public interface IApiController<T>
-    {
-        Task<ActionResult<ApiResult<IEnumerable<T>>>> Get();
+    Task<ActionResult<ApiResult<IEnumerable<T>>>> Get(CancellationToken cancellationToken = default);
 
-        Task<ActionResult<ApiResult<T>>> Get(long id);
+    Task<ActionResult<ApiResult<T>>> Get(TKey id, CancellationToken cancellationToken = default);
 
-        Task<ActionResult<ApiResult<T>>> Delete(long id);
+    Task<ActionResult<ApiResult<T>>> Delete(TKey id, CancellationToken cancellationToken = default);
 
-        Task<ActionResult<ApiResult<T>>> Post(T entity);
+    Task<ActionResult<ApiResult<T>>> Post(T entity, CancellationToken cancellationToken = default);
 
-        Task<ActionResult<ApiResult<T>>> PostBulk(IEnumerable<T> entities);
+    Task<ActionResult<ApiResult<T>>> PostBulk(ICollection<T> entities, CancellationToken cancellationToken = default);
 
-        Task<ActionResult<ApiResult<T>>> Put(T entity);
-    }
+    Task<ActionResult<ApiResult<T>>> Put(T entity, CancellationToken cancellationToken = default);
 }

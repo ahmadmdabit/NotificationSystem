@@ -1,15 +1,22 @@
-﻿using API.Controller;
-using BLL.Business;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.AspNetCore.Mvc;
+
+using NotificationService.Businesses;
 using NotificationService.Entities;
 
-namespace NotificationService.Controllers
+namespace API.Controller;
+
+[Route("api/[controller]")]
+public sealed class NotificationHistoriesController
+    : BaseCompositeApiController<NotificationHistory, long, long>
 {
-    public class NotificationHistoriesController : BaseApiController<NotificationHistory>
+    public NotificationHistoriesController(
+        NotificationHistoryBusiness business,
+        ILogger<NotificationHistoriesController> logger)
+        : base(business, logger)
     {
-        public NotificationHistoriesController(IBusiness<NotificationHistory> business, ILogger<BaseApiController<NotificationHistory>> logger, IActionContextAccessor accessor) : base(business, logger, accessor)
-        {
-        }
     }
+
+    // GET /api/notificationhistories/100/42
+    // DELETE /api/notificationhistories/100/42
+    // POST /api/notificationhistories
 }

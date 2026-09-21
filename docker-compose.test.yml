@@ -1,5 +1,10 @@
 version: "3.8"
 
+# Own Compose project name: without it this file shares the "notificationsystem"
+# project with docker-compose.yml, so `down -v` here would tear down the main
+# stack (containers + SQL volume) too.
+name: notificationsystem-test
+
 # Isolated, fail-fast SQL for tests. No named volume — a leftover
 # notificationsystem-sql volume must never be reused here.
 # This compose file is intentionally SQL-only — it provides a clean

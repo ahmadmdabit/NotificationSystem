@@ -1,5 +1,5 @@
 {
-  "ReRoutes": [
+  "Routes": [
     {
       "DownstreamPathTemplate": "/api/Users/Register",
       "DownstreamScheme": "https",
@@ -73,12 +73,12 @@
       "UpstreamHttpMethod": [ "GET", "POST", "PUT" ]
     },
     {
-      "DownstreamPathTemplate": "/api/NotificationHistories/{id}",
+      "DownstreamPathTemplate": "/api/NotificationHistories/{key1}/{key2}",
       "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [
         { "Host": "localhost", "Port": 44314 }
       ],
-      "UpstreamPathTemplate": "/NotificationHistories/{id}",
+      "UpstreamPathTemplate": "/NotificationHistories/{key1}/{key2}",
       "UpstreamHttpMethod": [ "GET", "DELETE" ]
     }
   ],

@@ -1,9 +1,9 @@
 # Build stage
-FROM mcr.microsoft.com/dotnet/sdk:3.1-alpine AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 WORKDIR /src
 
 # Copy solution and project files first for layer caching
-COPY NotificationSystem.sln ./
+COPY NotificationSystem.slnx ./
 COPY ApiGateway/ApiGateway.csproj ApiGateway/
 
 # Restore dependencies
@@ -17,7 +17,7 @@ WORKDIR /src/ApiGateway
 RUN dotnet publish -c Release -o /app/publish --no-restore
 
 # Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:3.1-alpine AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 WORKDIR /app
 
 # Create non-root user

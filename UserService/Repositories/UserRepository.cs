@@ -1,13 +1,14 @@
-﻿using DAL.Repository;
-using System.Data;
+﻿using System.Data;
+
+using DAL.Repository;
+
 using UserService.Entities;
 
-namespace UserService.Repositories
+namespace UserService.Repositories;
+
+public class UserRepository : BaseRepository<User, long>
 {
-    public class UserRepository : BaseRepository<User>
+    public UserRepository(IDbConnection dbConnection) : base(dbConnection)
     {
-        public UserRepository(IDbConnection dbConnection) : base(dbConnection)
-        {
-        }
     }
 }

@@ -1,19 +1,16 @@
-using DAL;
 using Dapper;
+
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Configuration;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace UserService
+namespace UserService;
+
+public class DatabaseMigration : DAL.DatabaseMigrationBase
 {
-    public class DatabaseMigration : DAL.DatabaseMigrationBase
-    {
-        public DatabaseMigration(IConfiguration configuration) : base(configuration) { }
+    public DatabaseMigration(IConfiguration configuration) : base(configuration) { }
 
-        protected override async Task CreateSchemaAsync(SqlConnection connection, CancellationToken cancellationToken)
-        {
-            await connection.ExecuteAsync(@"
+    protected override async Task CreateSchemaAsync(SqlConnection connection, CancellationToken cancellationToken)
+    {
+        await connection.ExecuteAsync(@"
                 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Users')
                 CREATE TABLE [dbo].[Users] (
                     [Id] BIGINT IDENTITY(1,1) PRIMARY KEY NOT NULL,
@@ -24,7 +21,10 @@ namespace UserService
                     [CreatedAt] DATETIME2 NULL,
                     [UpdatedAt] DATETIME2 NULL,
                     [IsDeleted] BIT NOT NULL DEFAULT 0
-                )");
-        }
+                );
+
+                -- Unique index on Username prevents TOCTOU race condition on registration (HIGH-04)
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'UXUsersUsername' AND object_id = OBJECT_ID('dbo.Users'))
+                CREATE UNIQUE NONCLUSTERED INDEX [UXUsersUsername] ON [dbo].[Users] ([Username]);");
     }
 }

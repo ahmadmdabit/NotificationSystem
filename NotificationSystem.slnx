@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/Lib/">
+    <Project Path="API/API.csproj" />
+    <Project Path="BLL/BLL.csproj" />
+    <Project Path="Common/Common.csproj" />
+    <Project Path="DAL/DAL.csproj" />
+  </Folder>
+  <Folder Name="/Services/">
+    <Project Path="ApiGateway/ApiGateway.csproj" />
+    <Project Path="NotificationService/NotificationService.csproj" />
+    <Project Path="UserService/UserService.csproj" />
+  </Folder>
+  <Project Path="UI/UI.csproj" />
+</Solution>

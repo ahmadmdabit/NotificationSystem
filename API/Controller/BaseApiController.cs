@@ -1,116 +1,121 @@
 ﻿using BLL.Business;
+
 using Common.Helpers;
+
+using DAL.Entity;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
-namespace API.Controller
+namespace API.Controller;
+
+[Produces("application/json")]
+[Authorize]
+[Route("api/[controller]")]
+[ApiController]
+public abstract class BaseApiController<T, TKey> : ControllerBase, IApiController<T, TKey>
+    where T : class, IEntity<T, TKey>, new()
+    where TKey : notnull
 {
-    [Produces("application/json")]
-    [Authorize]
-    [Route("api/[controller]")]
-    [ApiController]
-    public abstract class BaseApiController<T> : ControllerBase, IApiController<T> where T : class
+    protected readonly IBusiness<T, TKey> Business;
+    protected readonly ILogger<BaseApiController<T, TKey>> Logger;
+
+    protected string ClientIp => HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown";
+
+    protected BaseApiController(IBusiness<T, TKey> business, ILogger<BaseApiController<T, TKey>> logger)
     {
-        protected readonly IBusiness<T> _business;
-        protected readonly ILogger<BaseApiController<T>> _logger;
-        protected readonly IActionContextAccessor _accessor;
-        protected readonly string _ip;
+        Business = business ?? throw new ArgumentNullException(nameof(business));
+        Logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
 
-        protected BaseApiController(IBusiness<T> business, ILogger<BaseApiController<T>> logger, IActionContextAccessor accessor)
-        {
-            this._business = business;
-            this._logger = logger;
-            this._accessor = accessor;
-            this._ip = this._accessor.ActionContext.HttpContext.Connection.RemoteIpAddress.ToString();
-        }
+    // GET: api/[controller]
+    [HttpGet]
+    public virtual async Task<ActionResult<ApiResult<IEnumerable<T>>>> Get(CancellationToken cancellationToken = default)
+    {
+        Logger.LogInformation("[Get] [{Ip}] Entity: {Entity}", ClientIp, typeof(T).Name);
+        var result = await Business.GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        return Ok(new ApiResult<IEnumerable<T>>(true, result));
+    }
 
-        // GET: api/[controller]
-        [HttpGet]
-        public virtual async Task<ActionResult<ApiResult<IEnumerable<T>>>> Get()
+    // GET: api/[controller]/{id}
+    [HttpGet("{id}")]
+    public virtual async Task<ActionResult<ApiResult<T>>> Get(TKey id, CancellationToken cancellationToken = default)
+    {
+        Logger.LogInformation("[Get:{Id}] [{Ip}] Entity: {Entity}", id, ClientIp, typeof(T).Name);
+        try
         {
-            this._logger.LogInformation($"[Get] [{this._ip}]");
-            return Ok(new ApiResult<IEnumerable<T>>(true, await this._business.GetAsync().ConfigureAwait(false)));
+            var entity = await Business.GetAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false);
+            return Ok(new ApiResult<T>(true, entity));
         }
+        catch (KeyNotFoundException)
+        {
+            return NotFoundApi($"Entity '{typeof(T).Name}' with id [{id}] could not be found.");
+        }
+    }
 
-        // GET: api/[controller]/5
-        [HttpGet("{id}")]
-        public virtual async Task<ActionResult<ApiResult<T>>> Get(long id)
+    // DELETE: api/[controller]/{id}
+    [HttpDelete("{id}")]
+    public virtual async Task<ActionResult<ApiResult<T>>> Delete(TKey id, CancellationToken cancellationToken = default)
+    {
+        Logger.LogInformation("[Delete:{Id}] [{Ip}] Entity: {Entity}", id, ClientIp, typeof(T).Name);
+        if (await Business.DeleteAsync(id, cancellationToken).ConfigureAwait(false))
         {
-            this._logger.LogInformation($"[Get:{id}] [{this._ip}]");
-            var entity = await this._business.GetAsync(id).ConfigureAwait(false);
-            if (entity != null)
-            {
-                return Ok(new ApiResult<T>(true, entity));
-            }
-            return this.NotFoundApi();
+            return Ok(new ApiResult<T>(true, null!));
         }
+        return NotFoundApi();
+    }
 
-        // DELETE: api/[controller]/5
-        [HttpDelete("{id}")]
-        public virtual async Task<ActionResult<ApiResult<T>>> Delete(long id)
+    // POST: api/[controller]
+    [HttpPost]
+    public virtual async Task<ActionResult<ApiResult<T>>> Post([FromBody] T entity, CancellationToken cancellationToken = default)
+    {
+        Logger.LogInformation("[Post] [{Ip}] Entity: {Entity}", ClientIp, typeof(T).Name);
+        var created = await Business.AddAsync(entity, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (created != null)
         {
-            this._logger.LogInformation($"[Delete:{id}] [{this._ip}]");
-            if (await this._business.DeleteAsync(id).ConfigureAwait(false))
-            {
-                return Ok(new ApiResult<T>(true, null));
-            }
-            return this.NotFoundApi();
+            return Ok(new ApiResult<T>(true, created));
         }
+        return BadRequestApi();
+    }
 
-        // POST: api/[controller]
-        [HttpPost]
-        public virtual async Task<ActionResult<ApiResult<T>>> Post([FromBody] T entity)
-        {
-            this._logger.LogInformation($"[Post] [{this._ip}] {JsonConvert.SerializeObject(entity)}");
-            entity = await this._business.AddAsync(entity).ConfigureAwait(false);
-            if (entity != null)
-            {
-                return Ok(new ApiResult<T>(true, entity));
-            }
-            return this.BadRequestApi();
-        }
+    // POST: api/[controller]/Bulk
+    [HttpPost("Bulk")]
+    public virtual async Task<ActionResult<ApiResult<T>>> PostBulk([FromBody] ICollection<T> entities, CancellationToken cancellationToken = default)
+    {
+        var count = entities?.Count ?? 0;
+        Logger.LogInformation("[PostBulk] [{Ip}] Entity: {Entity} Count: {Count}", ClientIp, typeof(T).Name, count);
 
-        // POST: api/[controller]/Bulk
-        [HttpPost("Bulk")]
-        public virtual async Task<ActionResult<ApiResult<T>>> PostBulk([FromBody] IEnumerable<T> entities)
+        var affected = await Business.AddAsync(entities!, cancellationToken).ConfigureAwait(false);
+        if (affected > 0)
         {
-            this._logger.LogInformation($"[PostBulk] [{this._ip}] {JsonConvert.SerializeObject(entities)}");
-            var added = await this._business.AddAsync(entities).ConfigureAwait(false);
-            if (added > 0)
-            {
-                return Ok(new ApiResult<T>(true, null));
-            }
-            return this.BadRequestApi();
+            return Ok(new ApiResult<int>(true, affected));
         }
+        return BadRequestApi("No records were inserted.");
+    }
 
-        // PUT: api/[controller]
-        [HttpPut]
-        public virtual async Task<ActionResult<ApiResult<T>>> Put([FromBody] T entity)
+    // PUT: api/[controller]
+    [HttpPut]
+    public virtual async Task<ActionResult<ApiResult<T>>> Put([FromBody] T entity, CancellationToken cancellationToken = default)
+    {
+        Logger.LogInformation("[Put] [{Ip}] Entity: {Entity}", ClientIp, typeof(T).Name);
+        var updated = await Business.UpdateAsync(entity, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (updated != null)
         {
-            this._logger.LogInformation($"[Put] [{this._ip}] {JsonConvert.SerializeObject(entity)}");
-            entity = await this._business.UpdateAsync(entity).ConfigureAwait(false);
-            if (entity != null)
-            {
-                return Ok(new ApiResult<T>(true, entity));
-            }
-            return this.BadRequestApi();
+            return Ok(new ApiResult<T>(true, updated));
         }
+        return BadRequestApi();
+    }
 
-        protected virtual ActionResult<ApiResult<T>> NotFoundApi(string message = null)
-        {
-            this._logger.LogInformation(message ?? "NotFound");
-            return NotFound(new ApiResult<T>(false, null, new NotFoundResult().StatusCode, message ?? "NotFound"));
-        }
+    protected virtual ActionResult<ApiResult<T>> NotFoundApi(string? message = null)
+    {
+        Logger.LogWarning("[NotFound] [{Ip}] Message: {Message}", ClientIp, message ?? "NotFound");
+        return NotFound(new ApiResult<T>(false, null!, 404, message ?? "NotFound"));
+    }
 
-        protected virtual ActionResult<ApiResult<T>> BadRequestApi(string message = null)
-        {
-            this._logger.LogInformation(message ?? "BadRequest");
-            return BadRequest(new ApiResult<T>(false, null, new BadRequestResult().StatusCode, message ?? "BadRequest"));
-        }
+    protected virtual ActionResult<ApiResult<T>> BadRequestApi(string? message = null)
+    {
+        Logger.LogWarning("[BadRequest] [{Ip}] Message: {Message}", ClientIp, message ?? "BadRequest");
+        return BadRequest(new ApiResult<T>(false, null!, 400, message ?? "BadRequest"));
     }
 }

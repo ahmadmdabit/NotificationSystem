@@ -1,8 +1,7 @@
-namespace Common.Helpers
+namespace Common.Helpers;
+
+public class AppSettings
 {
-    public class AppSettings
-    {
-        public string Secret { get; set; }
-        public string SqlConnectionString { get; set; }
-    }
+    public string Secret { get; set; } = null!;
+    public string SqlConnectionString { get; set; } = null!;
 }
