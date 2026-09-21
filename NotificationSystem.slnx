@@ -5,10 +5,28 @@
     <Project Path="Common/Common.csproj" />
     <Project Path="DAL/DAL.csproj" />
   </Folder>
+  <Folder Name="/NotificationService/">
+    <Project Path="NotificationService/NotificationService.Api/NotificationService.Api.csproj" />
+    <Project Path="NotificationService/NotificationService.Application/NotificationService.Application.csproj" />
+    <Project Path="NotificationService/NotificationService.Domain/NotificationService.Domain.csproj" />
+    <Project Path="NotificationService/NotificationService.Infrastructure/NotificationService.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/Services/">
     <Project Path="ApiGateway/ApiGateway.csproj" />
-    <Project Path="NotificationService/NotificationService.csproj" />
-    <Project Path="UserService/UserService.csproj" />
+  </Folder>
+  <Folder Name="/Shared/">
+    <Project Path="Shared/Shared.Application/Shared.Application.csproj" />
+    <Project Path="Shared/Shared.Domain/Shared.Domain.csproj" />
+    <Project Path="Shared/Shared.Infrastructure/Shared.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ArchitectureTests/ArchitectureTests.csproj" />
+  </Folder>
+  <Folder Name="/UserService/">
+    <Project Path="UserService/UserService.Api/UserService.Api.csproj" />
+    <Project Path="UserService/UserService.Application/UserService.Application.csproj" />
+    <Project Path="UserService/UserService.Domain/UserService.Domain.csproj" />
+    <Project Path="UserService/UserService.Infrastructure/UserService.Infrastructure.csproj" />
   </Folder>
   <Project Path="UI/UI.csproj" />
 </Solution>
