@@ -1,5 +1,4 @@
 using System.Data;
-using MassTransit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NotificationService.Domain.Abstractions;
@@ -26,7 +25,8 @@ public static class DependencyInjection
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<INotificationHistoryRepository, NotificationHistoryRepository>();
 
-        // Messaging
+        // Messaging (in-memory for dev, RabbitMQ for prod)
+        services.AddMassTransitForNotificationService(configuration);
         services.AddScoped<IDomainEventDispatcher, NotificationSentEventPublisher>();
 
         return services;

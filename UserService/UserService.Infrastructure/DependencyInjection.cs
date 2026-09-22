@@ -3,6 +3,7 @@ using Common.Helpers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using UserService.Domain.Abstractions;
+using UserService.Infrastructure.Messaging;
 using UserService.Infrastructure.Repositories;
 using UserService.Infrastructure.Services;
 
@@ -31,6 +32,9 @@ public static class DependencyInjection
         // Domain services
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<ITokenService, JwtTokenService>();
+
+        // Messaging (in-memory for dev, RabbitMQ for prod)
+        services.AddMassTransitForUserService(configuration);
 
         return services;
     }
