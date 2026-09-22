@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -24,11 +22,12 @@ services:
     image: rabbitmq:3.13-management
     container_name: notificationsystem-rabbitmq
     environment:
-      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-guest}
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-guest}
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:?RABBITMQ_USER is required (remote guest logins are refused by the broker)}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
     ports:
       - "5672:5672"
-      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
       test: rabbitmq-diagnostics -q ping
       interval: 10s
@@ -41,7 +40,7 @@ services:
   userservice:
     build:
       context: .
-      dockerfile: UserService/Dockerfile
+      dockerfile: Services/UserService/Dockerfile
     container_name: notificationsystem-userservice
     environment:
       - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
@@ -50,6 +49,10 @@ services:
       - AppSettings__Secret=${JWT_SECRET:?JWT_SECRET is required}
       - DISABLE_HTTPS_REDIRECT=true
       - AppSettings__SqlConnectionString=Server=sqlserver;Database=UserDB;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True
+      - Messaging__UseRabbitMq=true
+      - Messaging__RabbitMq__Host=rabbitmq
+      - Messaging__RabbitMq__Username=${RABBITMQ_USER:?RABBITMQ_USER is required}
+      - Messaging__RabbitMq__Password=${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
       interval: 10s
@@ -58,6 +61,8 @@ services:
       start_period: 15s
     depends_on:
       sqlserver:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - backend
@@ -66,7 +71,7 @@ services:
   notificationservice:
     build:
       context: .
-      dockerfile: NotificationService/Dockerfile
+      dockerfile: Services/NotificationService/Dockerfile
     container_name: notificationsystem-notificationservice
     environment:
       - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
@@ -75,6 +80,10 @@ services:
       - AppSettings__Secret=${JWT_SECRET:?JWT_SECRET is required}
       - DISABLE_HTTPS_REDIRECT=true
       - AppSettings__SqlConnectionString=Server=sqlserver;Database=NotificationDB;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True
+      - Messaging__UseRabbitMq=true
+      - Messaging__RabbitMq__Host=rabbitmq
+      - Messaging__RabbitMq__Username=${RABBITMQ_USER:?RABBITMQ_USER is required}
+      - Messaging__RabbitMq__Password=${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
       interval: 10s
@@ -84,6 +93,8 @@ services:
     depends_on:
       sqlserver:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - backend
     restart: unless-stopped
@@ -91,7 +102,7 @@ services:
   apigateway:
     build:
       context: .
-      dockerfile: ApiGateway/Dockerfile
+      dockerfile: Services/ApiGateway/Dockerfile
     container_name: notificationsystem-apigateway
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
@@ -99,6 +110,14 @@ services:
       - DISABLE_HTTPS_REDIRECT=true
     ports:
       - "8081:8080"
+    healthcheck:
+      # Gateway exposes /health (see its Dockerfile HEALTHCHECK); keeps ui's
+      # service_healthy dependency satisfiable without depending on upstreams.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health > /dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
     depends_on:
       userservice:
         condition: service_healthy
@@ -111,7 +130,7 @@ services:
   ui:
     build:
       context: .
-      dockerfile: UI/Dockerfile
+      dockerfile: Presentation/UI/Dockerfile
     container_name: notificationsystem-ui
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
@@ -131,6 +150,8 @@ services:
 
 volumes:
   sqlserver-data:
+    driver: local
+  rabbitmq-data:
     driver: local
 
 networks:

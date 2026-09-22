@@ -1,0 +1,97 @@
+{
+  "Routes": [
+    {
+      "DownstreamPathTemplate": "/api/Users/Register",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "userservice", "Port": 8080 }
+      ],
+      "UpstreamPathTemplate": "/Users/Register",
+      "UpstreamHttpMethod": [ "POST" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/Users/Authenticate",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "userservice", "Port": 8080 }
+      ],
+      "UpstreamPathTemplate": "/Users/Authenticate",
+      "UpstreamHttpMethod": [ "POST" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/Users",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "userservice", "Port": 8080 }
+      ],
+      "UpstreamPathTemplate": "/Users",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/Users/username/{username}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "userservice", "Port": 8080 }
+      ],
+      "UpstreamPathTemplate": "/Users/username/{username}",
+      "UpstreamHttpMethod": [ "GET" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/Users/{id}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "userservice", "Port": 8080 }
+      ],
+      "UpstreamPathTemplate": "/Users/{id}",
+      "UpstreamHttpMethod": [ "GET", "DELETE" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/Notifications",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 8080 }
+      ],
+      "UpstreamPathTemplate": "/Notifications",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/Notifications/{id}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 8080 }
+      ],
+      "UpstreamPathTemplate": "/Notifications/{id}",
+      "UpstreamHttpMethod": [ "GET", "DELETE" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/Notifications/Send",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 8080 }
+      ],
+      "UpstreamPathTemplate": "/Notifications/Send",
+      "UpstreamHttpMethod": [ "POST" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/NotificationHistories",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 8080 }
+      ],
+      "UpstreamPathTemplate": "/NotificationHistories",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/NotificationHistories/{key1}/{key2}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "notificationservice", "Port": 8080 }
+      ],
+      "UpstreamPathTemplate": "/NotificationHistories/{key1}/{key2}",
+      "UpstreamHttpMethod": [ "GET", "DELETE" ]
+    }
+  ],
+  "GlobalConfiguration": {
+    "BaseUrl": "http://0.0.0.0:8080"
+  }
+}

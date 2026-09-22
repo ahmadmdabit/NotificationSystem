@@ -23,6 +23,7 @@
 - [Database](#database)
 - [Error Contract](#error-contract)
 - [Cross-cutting Concerns](#cross-cutting-concerns)
+- [Messaging & Dispatch](#messaging--dispatch)
 - [Frontend Dependencies](#frontend-dependencies)
 - [CI/CD](#cicd)
 - [Development](#development)
@@ -39,7 +40,7 @@ The application consists of multiple components:
 - **Microservices**: UserService and NotificationService for handling business logic
 - **API Gateway**: Centralized routing using Ocelot
 - **Web UI**: MVC application with responsive design
-- **Shared Kernel**: Common, Shared.Domain, Shared.Application, Shared.Infrastructure
+- **Shared Kernel**: Shared.Api, Shared.Domain, Shared.Application, Shared.Infrastructure
 - **Architecture Tests**: ArchUnitNET-based dependency rule enforcement
 
 ## Key Features
@@ -174,20 +175,20 @@ class node_shared_domain,node_shared_app,node_shared_infra,node_common toneNeutr
 
 ## Tech Stack
 
-| Layer                 | Technology                                           |
-| --------------------- | ---------------------------------------------------- |
-| **Framework**         | ASP.NET Core 10 (net10.0)                            |
-| **Architecture**      | Clean Architecture + CQRS + DDD, Microservices       |
-| **Languages**         | C#                                                   |
-| **Database**          | SQL Server 2022 (Docker) / LocalDB + Dapper         |
-| **API Gateway**       | Ocelot 25.0.1                                        |
-| **Container**         | Docker (multi-stage alpine, non-root, health checks) |
-| **Frontend**          | ASP.NET Core MVC (Bootstrap, jQuery, Grid.js)        |
-| **API Documentation** | Swagger/OpenAPI                                      |
-| **HTTP Client**       | RestSharp                                            |
-| **Messaging**         | MassTransit (in-memory dev / RabbitMQ prod)          |
-| **Validation**        | FluentValidation                                     |
-| **Architecture Tests**| ArchUnitNET (NUnit)                                  |
+| Layer                  | Technology                                                            |
+| ---------------------- | --------------------------------------------------------------------- |
+| **Framework**          | ASP.NET Core 10 (net10.0)                                             |
+| **Architecture**       | Clean Architecture + CQRS + DDD, Microservices                        |
+| **Languages**          | C#                                                                    |
+| **Database**           | SQL Server 2022 (Docker) / LocalDB + Dapper                           |
+| **API Gateway**        | Ocelot 25.0.1                                                         |
+| **Container**          | Docker (multi-stage alpine, non-root, health checks)                  |
+| **Frontend**           | ASP.NET Core MVC (Bootstrap, jQuery, Grid.js)                         |
+| **API Documentation**  | Swagger/OpenAPI                                                       |
+| **HTTP Client**        | RestSharp                                                             |
+| **Messaging**          | MassTransit (in-memory / RabbitMQ), post-commit domain event dispatch |
+| **Validation**         | FluentValidation                                                      |
+| **Architecture Tests** | ArchUnitNET (NUnit)                                                   |
 
 ## Getting Started
 
@@ -220,9 +221,9 @@ The JWT signing secret is not stored in source control. Each developer must gene
 ```bash
 # Same value in both services — they share one signing key
 SECRET=$(openssl rand -hex 32)
-(cd UserService && dotnet user-secrets init && dotnet user-secrets set "AppSettings:Secret" "$SECRET")
-(cd NotificationService && dotnet user-secrets init && dotnet user-secrets set "AppSettings:Secret" "$SECRET")
-(cd UI && dotnet user-secrets init && dotnet user-secrets set "ApiSettings:ServicePassword" "$(openssl rand -hex 16)")
+(cd Services/UserService/UserService.Api && dotnet user-secrets init && dotnet user-secrets set "AppSettings:Secret" "$SECRET")
+(cd Services/NotificationService/NotificationService.Api && dotnet user-secrets init && dotnet user-secrets set "AppSettings:Secret" "$SECRET")
+(cd Presentation/UI && dotnet user-secrets init && dotnet user-secrets set "ApiSettings:ServicePassword" "$(openssl rand -hex 16)")
 ```
 
 **Option 2: Environment variables**
@@ -237,7 +238,7 @@ export AppSettings__Secret="$(openssl rand -hex 32)"
 
 **Option 3: appsettings.Development.json (gitignored by default)**
 
-Create `UserService/appsettings.Development.json`:
+Create `Services/UserService/UserService.Api/appsettings.Development.json`:
 
 ```json
 {
@@ -269,10 +270,10 @@ Create `UserService/appsettings.Development.json`:
 
 2. Start the microservices in separate terminals:
    ```bash
-   cd UserService/UserService.Api && dotnet run
-   cd NotificationService/NotificationService.Api && dotnet run
-   cd ApiGateway && dotnet run
-   cd UI && dotnet run
+   cd Services/UserService/UserService.Api && dotnet run
+   cd Services/NotificationService/NotificationService.Api && dotnet run
+   cd Services/ApiGateway && dotnet run
+   cd Presentation/UI && dotnet run
    ```
 
 **Option 2: Docker Compose (recommended)**
@@ -299,10 +300,10 @@ Create `UserService/appsettings.Development.json`:
 **Option 3: Development watch**
 
 ```bash
-cd UserService/UserService.Api && dotnet watch run
-cd NotificationService/NotificationService.Api && dotnet watch run
-cd ApiGateway && dotnet watch run
-cd UI && dotnet watch run
+cd Services/UserService/UserService.Api && dotnet watch run
+cd Services/NotificationService/NotificationService.Api && dotnet watch run
+cd Services/ApiGateway && dotnet watch run
+cd Presentation/UI && dotnet watch run
 ```
 
 | Service             | Host (Compose)                            | URL (local dev)           |
@@ -316,35 +317,38 @@ cd UI && dotnet watch run
 ## Project Structure
 
 ```
-├── Common/                          # Shared helpers (ApiResult, ErrorResult, AppSettings)
 ├── Shared/
-│   ├── Shared.Domain/               # DomainEvent, IRequest markers
-│   ├── Shared.Application/          # IRequest, IDomainEventDispatcher
-│   └── Shared.Infrastructure/       # InMemory/MassTransit event dispatchers, CommonBehavior
-├── UserService/
-│   ├── UserService.Domain/          # User entity, Password VO, UserRegisteredEvent, repository interfaces
-│   ├── UserService.Application/     # CQRS commands/queries, DTOs, FluentValidation, behaviors
-│   ├── UserService.Infrastructure/  # Dapper repositories, UnitOfWork, JwtTokenService, PasswordHasher, MassTransit
-│   └── UserService.Api/             # Controllers, Program.cs, JWT auth
-├── NotificationService/
-│   ├── NotificationService.Domain/          # Notification entity, NotificationStatus VO, NotificationSentEvent
-│   ├── NotificationService.Application/     # CQRS commands/queries, DTOs, FluentValidation, behaviors
-│   ├── NotificationService.Infrastructure/  # Dapper repositories, TVP, UnitOfWork, MassTransit publisher
-│   └── NotificationService.Api/             # Controllers, Program.cs, JWT auth
-├── ApiGateway/                      # Ocelot API Gateway
-├── UI/                              # ASP.NET Core 10 MVC (Bootstrap/jQuery/Grid.js)
-│   └── Services/                    # GatewayApiClient, IGatewayApiClient - BFF pattern
-└── tests/
-    └── ArchitectureTests/           # ArchUnitNET dependency rule tests (NUnit, Debug only)
+│   ├── Shared.Api/                  # ApiResult, ErrorResult, ApiExceptionHandler, MessagingHealthCheck
+│   ├── Shared.Domain/               # DomainEvent, IDomainEventDispatcher, DomainEventCollector
+│   ├── Shared.Application/          # IRequest markers, CommonBehavior pipeline, AppSettings (Shared.Helpers)
+│   └── Shared.Infrastructure/       # MassTransitDomainEventDispatcher, UnitOfWork, DatabaseMigrationBase, DapperConfiguration
+├── Services/
+│   ├── UserService/
+│   │   ├── UserService.Domain/          # User entity, Password VO, UserRegisteredEvent, repository interfaces
+│   │   ├── UserService.Application/     # CQRS commands/queries, DTOs, FluentValidation, behaviors
+│   │   ├── UserService.Infrastructure/  # Dapper repositories, UnitOfWork, JwtTokenService, PasswordHasher, MassTransit
+│   │   └── UserService.Api/             # Controllers, Program.cs, JWT auth
+│   ├── NotificationService/
+│   │   ├── NotificationService.Domain/          # Notification entity, NotificationStatus VO, NotificationSentEvent
+│   │   ├── NotificationService.Application/     # CQRS commands/queries, DTOs, FluentValidation, behaviors
+│   │   ├── NotificationService.Infrastructure/  # Dapper repositories, TVP, UnitOfWork, MassTransit publisher
+│   │   └── NotificationService.Api/             # Controllers, Program.cs, JWT auth
+│   └── ApiGateway/                      # Ocelot API Gateway
+├── Presentation/
+│   └── UI/                              # ASP.NET Core 10 MVC (Bootstrap/jQuery/Grid.js)
+│       └── Services/                    # GatewayApiClient, IGatewayApiClient - BFF pattern
+└── Tests/
+    ├── ArchitectureTests/             # ArchUnitNET dependency rule tests (NUnit, Debug only)
+    └── WiringTests/                   # DI resolution tests (NUnit, Debug only)
 ```
 
 ## Domain Entities
 
-| Entity              | Location                                              | Key Fields                                      |
-| ------------------- | ----------------------------------------------------- | ----------------------------------------------- |
-| User                | `UserService/Domain/Entities/User.cs`                 | Id, Username, Password (VO), CreatedAt          |
-| Notification        | `NotificationService/Domain/Entities/Notification.cs` | Id, Title, Content, Status (VO), SentAt        |
-| NotificationHistory | `NotificationService/Domain/NotificationHistory.cs`   | NotificationId (PK), UserId (PK), CreatedAt     |
+| Entity              | Location                                                                           | Key Fields                                  |
+| ------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------- |
+| User                | `Services/UserService/UserService.Domain/Entities/User.cs`                         | Id, Username, Password (VO), CreatedAt      |
+| Notification        | `Services/NotificationService/NotificationService.Domain/Entities/Notification.cs` | Id, Title, Content, Status (VO), SentAt     |
+| NotificationHistory | `Services/NotificationService/NotificationService.Domain/NotificationHistory.cs`   | NotificationId (PK), UserId (PK), CreatedAt |
 
 **NotificationHistory** is an infrastructure-level DTO (composite key, no domain behavior), not a domain entity or value object. It maps the join table for notification delivery tracking.
 
@@ -382,12 +386,12 @@ Authentication uses JWT tokens with the following characteristics:
 
 - **Algorithm**: HMAC-SHA256
 - **Expiry**: 7 days
-- **Password Hashing**: PBKDF2 (`Rfc2898DeriveBytes`, HMAC-SHA512, 600,000 iterations, 256-bit salt) with constant-time verification (`CryptographicOperations.FixedTimeEquals`) in `UserService/Infrastructure/Services/PasswordHasher.cs`
-- **Token Generation**: `JwtTokenService` in `UserService/Infrastructure/Services/JwtTokenService.cs` (implements `ITokenService` from Domain)
-- **Token Validation**: All endpoints are authenticated by default via `[Authorize]`. `Register`, `Authenticate`, and `/health` remain anonymous. JWT validation is wired in both `UserService/Api/Program.cs` and `NotificationService/Api/Program.cs`.
+- **Password Hashing**: PBKDF2 (`Rfc2898DeriveBytes`, HMAC-SHA512, 600,000 iterations, 256-bit salt) with constant-time verification (`CryptographicOperations.FixedTimeEquals`) in `Services/UserService/UserService.Infrastructure/Services/PasswordHasher.cs`
+- **Token Generation**: `JwtTokenService` in `Services/UserService/UserService.Infrastructure/Services/JwtTokenService.cs` (implements `ITokenService` from Domain)
+- **Token Validation**: All endpoints are authenticated by default via `[Authorize]`. `Register`, `Authenticate`, and `/health` remain anonymous. JWT validation is wired in both `Services/UserService/UserService.Api/Program.cs` and `Services/NotificationService/NotificationService.Api/Program.cs`.
 - **Shared Secret**: Both services must use the same `AppSettings:Secret` value. Inject one `JWT_SECRET` (see [.env.example](.env.example)) — compose maps it into both services. Do not generate two keys.
 - **Username Uniqueness**: A unique nonclustered index (`UXUsersUsername`) on `Users(Username)` enforces uniqueness at the database level, closing the check-then-act race on concurrent registration.
-- **UI BFF**: The MVC UI never prompts for a user login. `UI/Services/GatewayApiClient` (implementing `IGatewayApiClient`, registered as singleton) registers/authenticates a service account (`ApiSettings:ServiceUsername` / `ServicePassword`, compose: `UI_SERVICE_PASSWORD`) and attaches an HTTP Authorization Bearer header on every gateway call. The client caches the token with an expiry timestamp (thundering-herd-safe refresh via `SemaphoreSlim` double-check), refreshes on 401, and disposes its `SemaphoreSlim` on shutdown.
+- **UI BFF**: The MVC UI never prompts for a user login. `Presentation/UI/Services/GatewayApiClient` (implementing `IGatewayApiClient`, registered as singleton) registers/authenticates a service account (`ApiSettings:ServiceUsername` / `ServicePassword`, compose: `UI_SERVICE_PASSWORD`) and attaches an HTTP Authorization Bearer header on every gateway call. The client caches the token with an expiry timestamp (thundering-herd-safe refresh via `SemaphoreSlim` double-check), refreshes on 401, and disposes its `SemaphoreSlim` on shutdown.
 
 ## Database
 
@@ -458,7 +462,7 @@ curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8081/Users   # 401 = r
 
 ### Stored Procedures
 
-The notification send operation uses `[dbo].[SPNotificationHistoryInsert]` with a Table-Valued Parameter of type `[dbo].[TypeNotificationHistory]`. The TVP is streamed via `TvpStreamingExtensions.AsSqlDataRecords()` with the column mapping defined in `NotificationService/Data/Tvp/NotificationHistoryTvpDefinition.cs` (single reusable `SqlDataRecord`, no `DataTable` materialization).
+The notification send operation uses `[dbo].[SPNotificationHistoryInsert]` with a Table-Valued Parameter of type `[dbo].[TypeNotificationHistory]`. The TVP is streamed via `TvpStreamingExtensions.AsSqlDataRecords()` with the column mapping defined in `Services/NotificationService/NotificationService.Infrastructure/Data/Tvp/NotificationHistoryTvpDefinition.cs` (single reusable `SqlDataRecord`, no `DataTable` materialization).
 
 ## Error Contract
 
@@ -477,13 +481,39 @@ All API errors return a standardized `ErrorResult` object:
 }
 ```
 
-Defined in `Common/Helpers/ErrorResult.cs`.
+Defined in `Shared/Shared.Api/ErrorResult.cs`.
 
 ## Cross-cutting Concerns
 
 - **CORS**: Pinned to the UI origin via `WithOrigins()` in each service (was `AllowAnyOrigin` — tightened to prevent direct cross-service access). The UI is a same-origin server-side proxy; browser clients never call the services directly.
 - **Error Contract**: `ErrorResult` redacts `StackTrace`/`InnerStackTrace` in Production environments (details only in non-production), preventing stack-trace disclosure to API clients
 - **MediatR Pipeline**: `ValidationBehavior` (FluentValidation), `LoggingBehavior`, and `TransactionBehavior` (wraps `ICommand` handlers in `UnitOfWork` transactions)
+
+## Messaging & Dispatch
+
+**Transport**: MassTransit with two transports, selected by `Messaging:UseRabbitMq` (`Messaging__UseRabbitMq` as env var / `.env` key):
+
+- **Local dev** (default): in-memory transport — no broker required.
+- **Docker/production**: RabbitMQ transport, injected by `docker-compose.yml` via `Messaging__UseRabbitMq=true` + `Messaging__RabbitMq__Host=rabbitmq` + `Messaging__RabbitMq__Username`/`Password` for both services.
+
+**Broker credentials** (`.env.example` → `.env`):
+
+- `RABBITMQ_USER` / `RABBITMQ_PASSWORD` — compose maps these to RabbitMQ's `RABBITMQ_DEFAULT_USER`/`RABBITMQ_DEFAULT_PASS`. RabbitMQ's default `guest` account is loopback-only and **refused** for remote (bridge-network) connections, so a non-guest pair is required when `Messaging__UseRabbitMq=true`.
+- RabbitMQ ports: `5672` (AMQP). Management UI is available on `15672` (not forwarded in compose).
+
+**Post-commit dispatch** (no ghost events on rollback):
+
+1. Aggregate domain events (`UserRegisteredEvent`, `NotificationSentEvent`) carry their payload and are raised during command-handler execution.
+2. Handlers record events on `Shared.Domain.DomainEventCollector` — an `AsyncLocal<List<DomainEvent>>` that isolates concurrent async flows per-request.
+3. `Shared.Application.Behaviors.TransactionBehavior<TRequest, TResponse>` wraps every `ICommand` in an `IUnitOfWork` transaction. Only after `_unitOfWork.CommitAsync()` succeeds does it call `DomainEventCollector.Drain()` and publish each event via `MassTransitDomainEventDispatcher` (which wraps MassTransit's `IPublishEndpoint`).
+4. On rollback, `DomainEventCollector.Clear()` discards pending events — they are never published.
+
+**Topology**:
+
+- `UserService` **publishes** `UserRegisteredEvent` (after commit) and **consumes** it via `UserRegisteredEventConsumer` (registered with `cfg.AddConsumer<UserRegisteredEventConsumer>()` + `cfg.ConfigureEndpoints(context)`).
+- `NotificationService` **publishes** `NotificationSentEvent` (after commit). It has no consumer for this event — it is a pure publisher (notification history is written to SQL via `SPNotificationHistoryInsert` TVP, not consumed from the broker).
+
+**Health**: `MessagingHealthCheck` (`Shared.Api`) performs a TCP connect probe to the configured broker (`Messaging:RabbitMq:Host`:`Port`, default `localhost:5672`) when `Messaging:UseRabbitMq=true`; returns `Healthy` with a no-broker message when in-memory transport is active. Registered as the `"messaging"` health check in both services' `Program.cs`.
 
 ## Frontend Dependencies
 
@@ -517,13 +547,13 @@ Clean Architecture + CQRS + DDD with the following layers per service:
 3. **Infrastructure**: Dapper repositories (reads via `QueryAsync`, writes via stored procedures), `UnitOfWork`, `JwtTokenService`, `PasswordHasher`, MassTransit event publisher, TVP definitions.
 4. **Api**: Controllers delegate to `IMediator`, JWT auth, `ApiResult<T>` response wrapper.
 
-**Shared Kernel** (`Shared/`): `DomainEvent`, `IRequest`, `IDomainEventDispatcher`, in-memory and MassTransit dispatchers, `CommonBehavior` pipeline.
+**Shared Kernel** (`Shared/`): `DomainEvent`, `IRequest` markers, `IDomainEventDispatcher`, `MassTransitDomainEventDispatcher`, `DomainEventCollector` (AsyncLocal), `CommonBehavior` pipeline, `AppSettings` (`Shared.Helpers` namespace).
 
-**Messaging**: Domain events dispatched via `IDomainEventDispatcher`. In-memory transport for local dev, RabbitMQ for Docker/prod (toggle via `Messaging:UseRabbitMQ`).
+**Messaging**: Domain events dispatched via `IDomainEventDispatcher` **after** the ambient transaction commits (post-commit dispatch — see [Messaging & Dispatch](#messaging--dispatch)). In-memory transport for local dev, RabbitMQ for Docker/production. Toggle via `Messaging:UseRabbitMq` (`Messaging__UseRabbitMq` as env var); compose injects `Messaging__UseRabbitMq=true` + `Messaging__RabbitMq__Host=rabbitmq`.
 
 **Stored Procedures**: Write operations use SPs (`sp_RegisterUser`, `sp_AuthenticateUser`, `sp_InsertNotification`, `sp_UpdateNotification`, `SPNotificationHistoryInsert`). Reads use Dapper `QueryAsync`.
 
-**Architecture Tests**: ArchUnitNET (NUnit, Debug config only) enforces dependency direction rules. Run: `dotnet test tests/ArchitectureTests/ArchitectureTests.csproj -c Debug`.
+**Architecture Tests**: ArchUnitNET (NUnit, Debug config only) enforces dependency direction rules. Run: `dotnet test Tests/ArchitectureTests/ArchitectureTests.csproj -c Debug`.
 
 ### Adding New Features
 
@@ -536,7 +566,7 @@ Clean Architecture + CQRS + DDD with the following layers per service:
 7. Create FluentValidation validator in same directory
 8. Add controller in `Api/Controllers/`, delegate to `IMediator`
 9. Register services in `Api/Program.cs`
-10. Add routing in `ApiGateway/ocelot.json` **under the `Routes` array** (single source; `ocelot.Development.json` overrides for local dev). Do not use the legacy `ReRoutes` key — Ocelot 25.x ignores it and every gateway call returns 404
+10. Add routing in `Services/ApiGateway/ocelot.json` **under the `Routes` array** (single source; `ocelot.Development.json` overrides for local dev). Do not use the legacy `ReRoutes` key — Ocelot 25.x ignores it and every gateway call returns 404
 11. Create UI pages if needed
 
 ## License

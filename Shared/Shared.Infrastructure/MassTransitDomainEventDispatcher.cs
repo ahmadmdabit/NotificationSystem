@@ -4,9 +4,10 @@ using Shared.Domain;
 namespace Shared.Infrastructure;
 
 /// <summary>
-/// Production domain event dispatcher using MassTransit with RabbitMQ transport.
+/// Production domain event dispatcher using MassTransit (in-memory or RabbitMQ transport,
+/// configured by each service's MassTransitConfigurator).
 /// </summary>
-public sealed class MassTransitDomainEventDispatcher : IDomainEventDispatcher
+public sealed class MassTransitDomainEventDispatcher : Shared.Domain.Abstractions.IDomainEventDispatcher
 {
     private readonly IPublishEndpoint _publishEndpoint;
 
@@ -15,7 +16,7 @@ public sealed class MassTransitDomainEventDispatcher : IDomainEventDispatcher
         _publishEndpoint = publishEndpoint ?? throw new ArgumentNullException(nameof(publishEndpoint));
     }
 
-    public async Task PublishAsync<T>(T domainEvent, CancellationToken cancellationToken = default) where T : DomainEvent
+    public async Task PublishAsync<T>(T domainEvent, CancellationToken cancellationToken = default) where T : Shared.Domain.DomainEvent
     {
         await _publishEndpoint.Publish(domainEvent, cancellationToken).ConfigureAwait(false);
     }

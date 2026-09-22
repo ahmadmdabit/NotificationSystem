@@ -11,11 +11,44 @@ env:
   IMAGE_PREFIX: ahmadmdabit
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        run: dotnet build NotificationSystem.slnx -c Debug
+
+      - name: Run architecture tests
+        run: dotnet test Tests/ArchitectureTests/ArchitectureTests.csproj -c Debug --no-build
+
+      - name: Run wiring tests
+        run: dotnet test Tests/WiringTests/WiringTests.csproj -c Debug --no-build
+
+      - name: Validate compose files
+        run: |
+          docker compose config -q
+          docker compose -f docker-compose.test.yml config -q
+
   build-and-push:
+    needs: test
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [userservice, notificationservice, apigateway, ui]
+        include:
+          - service: userservice
+            dockerfile: Services/UserService/Dockerfile
+          - service: notificationservice
+            dockerfile: Services/NotificationService/Dockerfile
+          - service: apigateway
+            dockerfile: Services/ApiGateway/Dockerfile
+          - service: ui
+            dockerfile: Presentation/UI/Dockerfile
 
     steps:
       - uses: actions/checkout@v4
@@ -34,7 +67,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./${{ matrix.service == 'userservice' && 'UserService' || matrix.service == 'notificationservice' && 'NotificationService' || matrix.service == 'apigateway' && 'ApiGateway' || 'UI' }}/Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: ${{ github.event_name == 'push' }}
           tags: |
             ${{ env.IMAGE_PREFIX }}/notificationsystem-${{ matrix.service }}:latest
