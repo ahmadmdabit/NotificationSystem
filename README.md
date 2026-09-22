@@ -32,14 +32,15 @@
 
 ## Overview
 
-A modern, scalable notification system built with .NET 10 using a microservices architecture. This project demonstrates best practices in software design, including separation of concerns, clean architecture, and API gateway pattern implementation.
+A modern, scalable notification system built with .NET 10 using a microservices architecture. This project demonstrates best practices in software design, including Clean Architecture, CQRS, DDD, and API gateway pattern implementation.
 
 The application consists of multiple components:
 
 - **Microservices**: UserService and NotificationService for handling business logic
 - **API Gateway**: Centralized routing using Ocelot
 - **Web UI**: MVC application with responsive design
-- **Shared Libraries**: Common, DAL, BLL, and API layers for code reuse
+- **Shared Kernel**: Common, Shared.Domain, Shared.Application, Shared.Infrastructure
+- **Architecture Tests**: ArchUnitNET-based dependency rule enforcement
 
 ## Key Features
 
@@ -57,8 +58,6 @@ The application consists of multiple components:
 
 ## Architecture Diagram
 
-[![Interactive Diagram](https://raster.shields.io/badge/Interactive_Diagram-lightgreen.png?logoColor=eeeeee&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAzFBMVEUAAACTM+qTM+mTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+qTM+pYr7W1AAAAQ3RSTlMAAAAlZGhpWxQEBajeV3QHCsHcYO6ABgm/3V75/oTtnJ7TVIqWjivDzJWXcs8cy8CHbPvrwqIIXQHKJyiZJinO0P3jWa9vVAAAAKRJREFUGNNVz+kSgiAYhWFI2zRTWtCKtJ2sLG3fM7n/ewqBpun9+czwzQEA+AuIClDTi6VypfoVaJiMsZpVt5VAB3FoNFttLAW6HodOt0f6jgLkB4PhaDyZzhRQatvePAwXS6xgFUVr/oxRR8KGxTHJwXMVkCTZ7oLARwr2B3w8WWdMqQJ0ud7M++P5UsCHpSl7ZxlB8qiYLjINAfnnRLomh/0FPrSFFcj8a3ouAAAAAElFTkSuQmCC)](https://gitdiagram.com/ahmadmdabit/NotificationSystem)
-
 ```mermaid
 flowchart TD
 
@@ -69,77 +68,91 @@ subgraph group_clients["Client Experience"]
 end
 
 subgraph group_edge["Gateway Edge"]
-  node_gateway["API Gateway<br/>[Startup.cs]"]
+  node_gateway["API Gateway<br/>[Program.cs]"]
 end
 
-subgraph group_users["User Service"]
-  node_user_api["Users API<br/>[UsersController.cs]"]
-  node_user_business["User Business<br/>[UserBusiness.cs]"]
-  node_user_repository["User Repository<br/>[UserRepository.cs]"]
+subgraph group_user_api["UserService.Api"]
+  node_user_api["UsersController"]
 end
 
-subgraph group_notifications["Notification Service"]
-  node_notification_api["Notifications API"]
-  node_history_api["History API"]
-  node_notification_business["Notification Business"]
-  node_history_business["History Business"]
-  node_notification_repository["Notification Repository"]
-  node_history_repository["History Repository"]
+subgraph group_user_app["UserService.Application"]
+  node_user_cmd["RegisterUserCommand<br/>AuthenticateUserCommand"]
+  node_user_query["GetUserByIdQuery<br/>GetAllUsersQuery"]
 end
 
-subgraph group_shared["Shared Runtime"]
-  node_base_api["Base API Controller"]
-  node_base_composite_api["Composite API Controller<br/>[BaseCompositeApiController.cs]"]
-  node_base_repository["Dapper Repository<br/>[BaseRepository.cs]"]
-  node_base_composite_repository["Composite Dapper Repository<br/>[BaseCompositeRepository.cs]"]
-  node_api_result["API Result Contract<br/>[ApiResult.cs]"]
+subgraph group_user_infra["UserService.Infrastructure"]
+  node_user_repo["UserRepository<br/>Dapper + SP"]
+  node_user_uow["UnitOfWork"]
+  node_user_jwt["JwtTokenService"]
+  node_user_pwd["PasswordHasher"]
+end
+
+subgraph group_user_domain["UserService.Domain"]
+  node_user_entity["User Entity<br/>Password VO"]
+  node_user_event["UserRegisteredEvent"]
+end
+
+subgraph group_notif_api["NotificationService.Api"]
+  node_notif_api["NotificationsController"]
+  node_history_api["NotificationsHistoryController"]
+end
+
+subgraph group_notif_app["NotificationService.Application"]
+  node_notif_cmd["SendNotificationsCommand"]
+  node_notif_query["GetNotificationByIdQuery<br/>GetNotificationHistoryQuery"]
+end
+
+subgraph group_notif_infra["NotificationService.Infrastructure"]
+  node_notif_repo["NotificationRepository<br/>Dapper + SP"]
+  node_history_repo["NotificationHistoryRepository<br/>TVP + SP"]
+  node_notif_uow["UnitOfWork"]
+  node_notif_publisher["NotificationSentEventPublisher<br/>MassTransit"]
+end
+
+subgraph group_notif_domain["NotificationService.Domain"]
+  node_notif_entity["Notification Entity<br/>NotificationStatus VO"]
+  node_notif_event["NotificationSentEvent"]
+end
+
+subgraph group_shared["Shared Kernel"]
+  node_shared_domain["Shared.Domain<br/>DomainEvent, IRequest"]
+  node_shared_app["Shared.Application<br/>IRequest, IDomainEventDispatcher"]
+  node_shared_infra["Shared.Infrastructure<br/>InMemory/MassTransit Dispatcher"]
+  node_common["Common<br/>ApiResult, ErrorResult, AppSettings"]
 end
 
 node_user_actor(("User"))
 node_sql_server[("SQL Server<br/>LocalDB / 2022 container")]
+node_rabbitmq[("RabbitMQ<br/>optional")]
 
 node_user_actor -->|"uses UI"| node_ui_web
 node_ui_web -->|"submits requests"| node_ui_api
 node_ui_api -->|"calls client"| node_gateway_client
 node_gateway_client -->|"sends HTTP"| node_gateway
-node_gateway -->|"routes users"| node_user_api
-node_gateway -->|"routes notifications"| node_notification_api
-node_gateway -->|"routes histories"| node_history_api
-node_user_api -->|"inherits"| node_base_api
-node_notification_api -->|"inherits"| node_base_api
-node_history_api -->|"inherits"| node_base_composite_api
-node_user_api -->|"authenticates users"| node_user_business
-node_notification_api -->|"sends notifications"| node_notification_business
-node_base_api -->|"invokes business"| node_user_business
-node_base_api -->|"invokes business"| node_notification_business
-node_base_composite_api -->|"invokes composite business"| node_history_business
-node_base_api -->|"wraps responses"| node_api_result
-node_base_composite_api -->|"wraps responses"| node_api_result
-node_base_repository -->|"queries data"| node_sql_server
-node_base_composite_repository -->|"queries data"| node_sql_server
-node_notification_business -->|"streams TVP to stored procedure"| node_sql_server
-node_user_repository -->|"uses repository"| node_base_repository
-node_notification_repository -->|"uses repository"| node_base_repository
-node_history_repository -->|"uses repository"| node_base_composite_repository
-
-click node_ui_web "https://github.com/ahmadmdabit/notificationsystem/blob/master/UI/Controllers/HomeController.cs"
-click node_ui_api "https://github.com/ahmadmdabit/notificationsystem/blob/master/UI/Controllers/ApiController.cs"
-click node_gateway_client "https://github.com/ahmadmdabit/notificationsystem/blob/master/UI/Services/GatewayApiClient.cs"
-click node_gateway "https://github.com/ahmadmdabit/notificationsystem/blob/master/ApiGateway/Startup.cs"
-click node_user_api "https://github.com/ahmadmdabit/notificationsystem/blob/master/UserService/Controllers/UsersController.cs"
-click node_user_business "https://github.com/ahmadmdabit/notificationsystem/blob/master/UserService/Businesses/UserBusiness.cs"
-click node_user_repository "https://github.com/ahmadmdabit/notificationsystem/blob/master/UserService/Repositories/UserRepository.cs"
-click node_notification_api "https://github.com/ahmadmdabit/notificationsystem/blob/master/NotificationService/Controllers/NotificationsController.cs"
-click node_history_api "https://github.com/ahmadmdabit/notificationsystem/blob/master/NotificationService/Controllers/NotificationsHistoryController.cs"
-click node_notification_business "https://github.com/ahmadmdabit/notificationsystem/blob/master/NotificationService/Businesses/NotificationBusiness.cs"
-click node_history_business "https://github.com/ahmadmdabit/notificationsystem/blob/master/NotificationService/Businesses/NotificationHistoryBusiness.cs"
-click node_notification_repository "https://github.com/ahmadmdabit/notificationsystem/blob/master/NotificationService/Repositories/NotificationRepository.cs"
-click node_history_repository "https://github.com/ahmadmdabit/notificationsystem/blob/master/NotificationService/Repositories/NotificationHistoryRepository.cs"
-click node_base_api "https://github.com/ahmadmdabit/notificationsystem/blob/master/API/Controller/BaseApiController.cs"
-click node_base_composite_api "https://github.com/ahmadmdabit/notificationsystem/blob/master/API/Controller/BaseCompositeApiController.cs"
-click node_base_repository "https://github.com/ahmadmdabit/notificationsystem/blob/master/DAL/Repository/BaseRepository.cs"
-click node_base_composite_repository "https://github.com/ahmadmdabit/notificationsystem/blob/master/DAL/Repository/BaseCompositeRepository.cs"
-click node_api_result "https://github.com/ahmadmdabit/notificationsystem/blob/master/Common/Helpers/ApiResult.cs"
+node_gateway -->|"routes /Users"| node_user_api
+node_gateway -->|"routes /Notifications"| node_notif_api
+node_gateway -->|"routes /NotificationHistories"| node_history_api
+node_user_api -->|"mediates"| node_user_cmd
+node_user_api -->|"mediates"| node_user_query
+node_user_cmd -->|"persists"| node_user_repo
+node_user_query -->|"reads"| node_user_repo
+node_user_repo -->|"uses"| node_user_uow
+node_user_jwt -->|"generates"| node_user_entity
+node_user_pwd -->|"hashes"| node_user_entity
+node_user_event -->|"dispatches"| node_shared_infra
+node_notif_api -->|"mediates"| node_notif_cmd
+node_notif_api -->|"mediates"| node_notif_query
+node_history_api -->|"mediates"| node_notif_query
+node_notif_cmd -->|"persists"| node_notif_repo
+node_notif_cmd -->|"streams TVP"| node_history_repo
+node_notif_query -->|"reads"| node_notif_repo
+node_notif_repo -->|"uses"| node_notif_uow
+node_history_repo -->|"uses"| node_notif_uow
+node_notif_event -->|"publishes"| node_notif_publisher
+node_notif_publisher -->|"RabbitMQ"| node_rabbitmq
+node_user_repo -->|"queries"| node_sql_server
+node_notif_repo -->|"queries"| node_sql_server
+node_history_repo -->|"inserts"| node_sql_server
 
 classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
 classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
@@ -149,10 +162,14 @@ classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
 classDef toneIndigo fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
 classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
 class node_ui_web,node_ui_api,node_gateway_client,node_user_actor toneBlue
-class node_gateway,node_sql_server toneAmber
-class node_user_api,node_user_business,node_user_repository toneMint
-class node_notification_api,node_history_api,node_notification_business,node_history_business,node_notification_repository,node_history_repository toneRose
-class node_base_api,node_base_composite_api,node_base_repository,node_base_composite_repository,node_api_result toneIndigo
+class node_gateway,node_sql_server,node_rabbitmq toneAmber
+class node_user_api,node_user_cmd,node_user_query toneMint
+class node_user_infra,node_user_repo,node_user_uow,node_user_jwt,node_user_pwd toneTeal
+class node_user_domain,node_user_entity,node_user_event toneIndigo
+class node_notif_api,node_history_api,node_notif_cmd,node_notif_query toneRose
+class node_notif_infra,node_notif_repo,node_history_repo,node_notif_uow,node_notif_publisher toneTeal
+class node_notif_domain,node_notif_entity,node_notif_event toneIndigo
+class node_shared_domain,node_shared_app,node_shared_infra,node_common toneNeutral
 ```
 
 ## Tech Stack
@@ -160,14 +177,17 @@ class node_base_api,node_base_composite_api,node_base_repository,node_base_compo
 | Layer                 | Technology                                           |
 | --------------------- | ---------------------------------------------------- |
 | **Framework**         | ASP.NET Core 10 (net10.0)                            |
-| **Architecture**      | Microservices with API Gateway                       |
+| **Architecture**      | Clean Architecture + CQRS + DDD, Microservices       |
 | **Languages**         | C#                                                   |
-| **Database**          | SQL Server 2022 (Docker) / LocalDB + Dapper ORM      |
+| **Database**          | SQL Server 2022 (Docker) / LocalDB + Dapper         |
 | **API Gateway**       | Ocelot 25.0.1                                        |
 | **Container**         | Docker (multi-stage alpine, non-root, health checks) |
 | **Frontend**          | ASP.NET Core MVC (Bootstrap, jQuery, Grid.js)        |
 | **API Documentation** | Swagger/OpenAPI                                      |
 | **HTTP Client**       | RestSharp                                            |
+| **Messaging**         | MassTransit (in-memory dev / RabbitMQ prod)          |
+| **Validation**        | FluentValidation                                     |
+| **Architecture Tests**| ArchUnitNET (NUnit)                                  |
 
 ## Getting Started
 
@@ -249,8 +269,8 @@ Create `UserService/appsettings.Development.json`:
 
 2. Start the microservices in separate terminals:
    ```bash
-   cd UserService && dotnet run
-   cd NotificationService && dotnet run
+   cd UserService/UserService.Api && dotnet run
+   cd NotificationService/NotificationService.Api && dotnet run
    cd ApiGateway && dotnet run
    cd UI && dotnet run
    ```
@@ -273,14 +293,14 @@ Create `UserService/appsettings.Development.json`:
 
 3. Check health:
    ```bash
-   docker compose ps  # all 5 services should report (healthy)
+   docker compose ps  # all services should report (healthy)
    ```
 
 **Option 3: Development watch**
 
 ```bash
-cd UserService && dotnet watch run
-cd NotificationService && dotnet watch run
+cd UserService/UserService.Api && dotnet watch run
+cd NotificationService/NotificationService.Api && dotnet watch run
 cd ApiGateway && dotnet watch run
 cd UI && dotnet watch run
 ```
@@ -296,31 +316,37 @@ cd UI && dotnet watch run
 ## Project Structure
 
 ```
-├── Common/
-│   └── Common Library (net10.0) - Helpers, Extensions
-├── DAL/
-│   └── DAL Library (net10.0) - Dapper & SQL Server (base classes, DatabaseMigrationBase)
-├── BLL/
-│   └── BLL Library (net10.0) - Business logic interfaces & base
-├── API/
-│   └── API Library (net10.0) - Swagger, base controllers
-├── Services/
-│   ├── UserService (ASP.NET Core 10 RESTful API)
-│   └── NotificationService (ASP.NET Core 10 RESTful API)
-├── ApiGateway/ (Ocelot API Gateway)
-└── UI/ (ASP.NET Core 10 MVC - Bootstrap/jQuery/Grid.js)
-    └── Services/ (GatewayApiClient, IGatewayApiClient - BFF pattern)
+├── Common/                          # Shared helpers (ApiResult, ErrorResult, AppSettings)
+├── Shared/
+│   ├── Shared.Domain/               # DomainEvent, IRequest markers
+│   ├── Shared.Application/          # IRequest, IDomainEventDispatcher
+│   └── Shared.Infrastructure/       # InMemory/MassTransit event dispatchers, CommonBehavior
+├── UserService/
+│   ├── UserService.Domain/          # User entity, Password VO, UserRegisteredEvent, repository interfaces
+│   ├── UserService.Application/     # CQRS commands/queries, DTOs, FluentValidation, behaviors
+│   ├── UserService.Infrastructure/  # Dapper repositories, UnitOfWork, JwtTokenService, PasswordHasher, MassTransit
+│   └── UserService.Api/             # Controllers, Program.cs, JWT auth
+├── NotificationService/
+│   ├── NotificationService.Domain/          # Notification entity, NotificationStatus VO, NotificationSentEvent
+│   ├── NotificationService.Application/     # CQRS commands/queries, DTOs, FluentValidation, behaviors
+│   ├── NotificationService.Infrastructure/  # Dapper repositories, TVP, UnitOfWork, MassTransit publisher
+│   └── NotificationService.Api/             # Controllers, Program.cs, JWT auth
+├── ApiGateway/                      # Ocelot API Gateway
+├── UI/                              # ASP.NET Core 10 MVC (Bootstrap/jQuery/Grid.js)
+│   └── Services/                    # GatewayApiClient, IGatewayApiClient - BFF pattern
+└── tests/
+    └── ArchitectureTests/           # ArchUnitNET dependency rule tests (NUnit, Debug only)
 ```
 
 ## Domain Entities
 
 | Entity              | Location                                              | Key Fields                                      |
 | ------------------- | ----------------------------------------------------- | ----------------------------------------------- |
-| User                | `UserService/Entities/User.cs`                        | Id, Username, PasswordHash, PasswordSalt, Token |
-| Notification        | `NotificationService/Entities/Notification.cs`        | Id, Title, Content                              |
-| NotificationHistory | `NotificationService/Entities/NotificationHistory.cs` | NotificationId (PK), UserId (PK), CreatedAt     |
+| User                | `UserService/Domain/Entities/User.cs`                 | Id, Username, Password (VO), CreatedAt          |
+| Notification        | `NotificationService/Domain/Entities/Notification.cs` | Id, Title, Content, Status (VO), SentAt        |
+| NotificationHistory | `NotificationService/Domain/NotificationHistory.cs`   | NotificationId (PK), UserId (PK), CreatedAt     |
 
-**NotificationHistory** uses a composite key (`NotificationId` + `UserId`) to track which users have received which notifications.
+**NotificationHistory** is an infrastructure-level DTO (composite key, no domain behavior), not a domain entity or value object. It maps the join table for notification delivery tracking.
 
 ## API Documentation
 
@@ -356,9 +382,9 @@ Authentication uses JWT tokens with the following characteristics:
 
 - **Algorithm**: HMAC-SHA256
 - **Expiry**: 7 days
-- **Password Hashing**: PBKDF2 (`Rfc2898DeriveBytes`, HMAC-SHA512, 600,000 iterations, 256-bit salt) with constant-time verification (`CryptographicOperations.FixedTimeEquals`) in `UserService/Businesses/UserBusiness.cs`
-- **Token Generation**: `UsersController.TokenGenerate()` in `UserService/Controllers/UsersController.cs`
-- **Token Validation**: All endpoints are authenticated by default (`[Authorize]` on `BaseApiController` in `API/Controller/BaseApiController.cs`). `Register`, `Authenticate`, and `/health` remain anonymous. JWT validation is wired in both `UserService/Startup.cs` and `NotificationService/Startup.cs`.
+- **Password Hashing**: PBKDF2 (`Rfc2898DeriveBytes`, HMAC-SHA512, 600,000 iterations, 256-bit salt) with constant-time verification (`CryptographicOperations.FixedTimeEquals`) in `UserService/Infrastructure/Services/PasswordHasher.cs`
+- **Token Generation**: `JwtTokenService` in `UserService/Infrastructure/Services/JwtTokenService.cs` (implements `ITokenService` from Domain)
+- **Token Validation**: All endpoints are authenticated by default via `[Authorize]`. `Register`, `Authenticate`, and `/health` remain anonymous. JWT validation is wired in both `UserService/Api/Program.cs` and `NotificationService/Api/Program.cs`.
 - **Shared Secret**: Both services must use the same `AppSettings:Secret` value. Inject one `JWT_SECRET` (see [.env.example](.env.example)) — compose maps it into both services. Do not generate two keys.
 - **Username Uniqueness**: A unique nonclustered index (`UXUsersUsername`) on `Users(Username)` enforces uniqueness at the database level, closing the check-then-act race on concurrent registration.
 - **UI BFF**: The MVC UI never prompts for a user login. `UI/Services/GatewayApiClient` (implementing `IGatewayApiClient`, registered as singleton) registers/authenticates a service account (`ApiSettings:ServiceUsername` / `ServicePassword`, compose: `UI_SERVICE_PASSWORD`) and attaches an HTTP Authorization Bearer header on every gateway call. The client caches the token with an expiry timestamp (thundering-herd-safe refresh via `SemaphoreSlim` double-check), refreshes on 401, and disposes its `SemaphoreSlim` on shutdown.
@@ -366,11 +392,12 @@ Authentication uses JWT tokens with the following characteristics:
 ## Database
 
 - **Engine**: SQL Server (LocalDB for local dev, SQL Server 2022 container in Docker)
-- **ORM**: Dapper 2.1.86
+- **ORM**: Dapper 2.1.66 (pure Dapper — no EF Core)
 - **Databases**: `UserDB` (UserService) and `NotificationDB` (NotificationService) — one per service, created on demand
-- **Connection**: Configured via `AppSettings.SqlConnectionString` in each service's `appsettings.json`. Local dev (`appsettings.Development.json`) uses `Data Source=(LocalDB)\MSSQLLocalDB;Database=<DbName>;Integrated Security=True`; Docker injects `Server=sqlserver;Database=...;User Id=sa;Password=${SQL_SA_PASSWORD}` via `docker-compose.yml`
-- **Database name**: always resolved from `Initial Catalog`/`Database` in the connection string — `DAL.DatabaseMigrationBase` reads it to create the database (reconnecting to `master` for the `CREATE DATABASE` step), so a connection string without an explicit catalog fails migration with `CREATE DATABASE []`
-- **Schema**: Created automatically at service startup by `DatabaseMigration` (`IHostedService` in `UserService/Startup.cs` / `NotificationService/Startup.cs`), inheriting from `DAL.DatabaseMigrationBase` which handles database creation and retry logic. No external init scripts and no committed database files: the former `App_Data/*.mdf` LocalDB files were removed from source control, and `*.mdf` / `*.ldf` are ignored via [.gitignore](.gitignore)
+- **Connection**: Configured via `AppSettings:SqlConnectionString` in each service's configuration. Local dev uses `Data Source=(LocalDB)\MSSQLLocalDB;Database=<DbName>;Integrated Security=True`; Docker injects `Server=sqlserver;Database=...;User Id=sa;Password=${SQL_SA_PASSWORD}` via `docker-compose.yml`
+- **Database name**: always resolved from `Initial Catalog`/`Database` in the connection string — `DatabaseMigrationBase` reads it to create the database (reconnecting to `master` for the `CREATE DATABASE` step), so a connection string without an explicit catalog fails migration with `CREATE DATABASE []`
+- **Schema**: Created automatically at service startup by `DatabaseMigration` (`IHostedService`), inheriting from `DatabaseMigrationBase` which handles database creation and retry logic. No external init scripts and no committed database files: `*.mdf` / `*.ldf` are ignored via [.gitignore](.gitignore)
+- **Write operations**: Stored procedures (`sp_RegisterUser`, `sp_AuthenticateUser`, `sp_InsertNotification`, `sp_UpdateNotification`, `SPNotificationHistoryInsert`). Read operations use Dapper `QueryAsync`.
 
 ### Resetting the Databases
 
@@ -454,9 +481,9 @@ Defined in `Common/Helpers/ErrorResult.cs`.
 
 ## Cross-cutting Concerns
 
-- **IP Logging**: `BaseApiController` resolves the client IP per request from `HttpContext.Connection.RemoteIpAddress` (populated by `UseForwardedHeaders` middleware in each service `Startup.cs`); null-safe with `"Unknown"` fallback
-- **CORS**: Pinned to the UI origin via `WithOrigins()` in each service `Startup.cs` (was `AllowAnyOrigin` — tightened to prevent direct cross-service access). The UI is a same-origin server-side proxy; browser clients never call the services directly.
+- **CORS**: Pinned to the UI origin via `WithOrigins()` in each service (was `AllowAnyOrigin` — tightened to prevent direct cross-service access). The UI is a same-origin server-side proxy; browser clients never call the services directly.
 - **Error Contract**: `ErrorResult` redacts `StackTrace`/`InnerStackTrace` in Production environments (details only in non-production), preventing stack-trace disclosure to API clients
+- **MediatR Pipeline**: `ValidationBehavior` (FluentValidation), `LoggingBehavior`, and `TransactionBehavior` (wraps `ICommand` handlers in `UnitOfWork` transactions)
 
 ## Frontend Dependencies
 
@@ -483,29 +510,34 @@ Each image is tagged with `latest` and the commit SHA. Build caching uses GitHub
 
 ### Architecture Details
 
-This N-Tier architecture uses a **layered diaspora** pattern:
+Clean Architecture + CQRS + DDD with the following layers per service:
 
-1. **Common Layer**: Shared helpers (`ApiResult<T>`, `ErrorResult`, `AppSettings`, `SpResult`)
-2. **DAL Layer**: `IEntity<TSelf, TKey>` / `ICompositeEntity<TSelf, TKey1, TKey2>` contracts with compile-time static metadata (table/key names, zero reflection at runtime); `IRepository<T, TKey>` + `BaseRepository<T, TKey>` and `ICompositeRepository<T, TKey1, TKey2>` + `BaseCompositeRepository<T, TKey1, TKey2>` with precomputed SQL, `FrozenSet` property whitelists, and shared projection validation; `DatabaseMigrationBase` for schema creation; `AddDAL()` DI extension; TVP streaming (`ITvpDefinition<T>`, `TvpStreamingExtensions`)
-3. **BLL Layer**: `IBusiness<T, TKey>` + `BaseBusiness<T, TKey>` and `ICompositeBusiness<T, TKey1, TKey2>` + `BaseCompositeBusiness<T, TKey1, TKey2>` abstract classes
-4. **API Layer**: `IApiController<T, TKey>` + `BaseApiController<T, TKey>` and `ICompositeApiController<T, TKey1, TKey2>` + `BaseCompositeApiController<T, TKey1, TKey2>` with standardized CRUD endpoints (authenticated by default via `[Authorize]`); composite entities route as `/{key1}/{key2}`
-5. **Services**: Concrete entities, repositories, business logic, and controllers live in `UserService/` and `NotificationService/`
-6. **ApiGateway**: Ocelot 25.x routing via `ocelot.json` (single source; `ocelot.Development.json` overrides for local dev). Route arrays must be named `Routes` — the legacy `ReRoutes` key inherited from Ocelot 15.x is silently ignored, so a mismatch only shows up at request time as HTTP 404 with `UnableToFindDownstreamRouteError`
-7. **UI**: MVC frontend calling the gateway via RestSharp
+1. **Domain**: Rich entities with behavior (`User.Create()`, `Notification.MarkAsSent()`), value objects (`Password`, `NotificationStatus`), domain events (`UserRegisteredEvent`, `NotificationSentEvent`), repository interfaces (`IUserRepository`, `INotificationRepository`), `IUnitOfWork`, `IDomainEventDispatcher`. No Dapper/EF attributes.
+2. **Application**: CQRS commands/queries via MediatR (`IRequest<T>`), DTOs, FluentValidation, pipeline behaviors (validation, logging, transaction). `ICommand` marker for write operations.
+3. **Infrastructure**: Dapper repositories (reads via `QueryAsync`, writes via stored procedures), `UnitOfWork`, `JwtTokenService`, `PasswordHasher`, MassTransit event publisher, TVP definitions.
+4. **Api**: Controllers delegate to `IMediator`, JWT auth, `ApiResult<T>` response wrapper.
 
-The shared libraries contain only base classes and interfaces. Concrete implementations (entities, repositories, business classes, controllers) reside in the service projects that use them.
+**Shared Kernel** (`Shared/`): `DomainEvent`, `IRequest`, `IDomainEventDispatcher`, in-memory and MassTransit dispatchers, `CommonBehavior` pipeline.
+
+**Messaging**: Domain events dispatched via `IDomainEventDispatcher`. In-memory transport for local dev, RabbitMQ for Docker/prod (toggle via `Messaging:UseRabbitMQ`).
+
+**Stored Procedures**: Write operations use SPs (`sp_RegisterUser`, `sp_AuthenticateUser`, `sp_InsertNotification`, `sp_UpdateNotification`, `SPNotificationHistoryInsert`). Reads use Dapper `QueryAsync`.
+
+**Architecture Tests**: ArchUnitNET (NUnit, Debug config only) enforces dependency direction rules. Run: `dotnet test tests/ArchitectureTests/ArchitectureTests.csproj -c Debug`.
 
 ### Adding New Features
 
-1. Define the entity in the service's `Entities/` folder (e.g., `NotificationService/Entities/`)
-2. Create repository interface in `DAL/Repository/` (if new generic contract needed)
-3. Implement concrete repository in the service's `Repositories/` folder
-4. Create business interface in `BLL/Business/` (if new generic contract needed)
-5. Implement concrete business class in the service's `Businesses/` folder
-6. Add controller in the service's `Controllers/` folder (inherit from `BaseApiController<T>`)
-7. Register services in the microservice's `Startup.cs`
-8. Add routing in `ApiGateway/ocelot.json` **under the `Routes` array** (single source; `ocelot.Development.json` overrides for local dev). Do not use the legacy `ReRoutes` key — Ocelot 25.x ignores it and every gateway call returns 404
-9. Create UI pages if needed
+1. Define the entity in the service's `Domain/Entities/` folder
+2. Create repository interface in `Domain/Abstractions/`
+3. Implement concrete repository in `Infrastructure/Repositories/`
+4. Create DTO in `Application/DTOs/`
+5. Create command/query in `Application/Commands/` or `Application/Queries/`
+6. Create handler in same directory, implement `IRequestHandler<TCommand, TResponse>`
+7. Create FluentValidation validator in same directory
+8. Add controller in `Api/Controllers/`, delegate to `IMediator`
+9. Register services in `Api/Program.cs`
+10. Add routing in `ApiGateway/ocelot.json` **under the `Routes` array** (single source; `ocelot.Development.json` overrides for local dev). Do not use the legacy `ReRoutes` key — Ocelot 25.x ignores it and every gateway call returns 404
+11. Create UI pages if needed
 
 ## License
 
