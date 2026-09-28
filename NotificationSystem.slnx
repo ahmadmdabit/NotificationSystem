@@ -4,10 +4,14 @@
   </Folder>
   <Folder Name="/Services/">
     <Project Path="Services/ApiGateway/ApiGateway.csproj" />
+  </Folder>
+  <Folder Name="/Services/NotificationService/">
     <Project Path="Services/NotificationService/NotificationService.Api/NotificationService.Api.csproj" />
     <Project Path="Services/NotificationService/NotificationService.Application/NotificationService.Application.csproj" />
     <Project Path="Services/NotificationService/NotificationService.Domain/NotificationService.Domain.csproj" />
     <Project Path="Services/NotificationService/NotificationService.Infrastructure/NotificationService.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/Services/UserService/">
     <Project Path="Services/UserService/UserService.Api/UserService.Api.csproj" />
     <Project Path="Services/UserService/UserService.Application/UserService.Application.csproj" />
     <Project Path="Services/UserService/UserService.Domain/UserService.Domain.csproj" />
@@ -22,5 +26,12 @@
   <Folder Name="/Tests/">
     <Project Path="Tests/ArchitectureTests/ArchitectureTests.csproj" />
     <Project Path="Tests/WiringTests/WiringTests.csproj" />
+  </Folder>
+  <Folder Name="/Tests/UnitTests/">
+    <Project Path="Tests/UnitTests/NotificationService.Tests/NotificationService.Tests.csproj" />
+    <Project Path="Tests/UnitTests/Shared.Tests/Shared.Tests.csproj" />
+    <Project Path="Tests/UnitTests/TestDoubles/TestDoubles.csproj" />
+    <Project Path="Tests/UnitTests/UI.Tests/UI.Tests.csproj" />
+    <Project Path="Tests/UnitTests/UserService.Tests/UserService.Tests.csproj" />
   </Folder>
 </Solution>

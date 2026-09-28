@@ -1,6 +1,7 @@
 namespace UserService.Application.Commands.AuthenticateUser;
 
 using MediatR;
+
 using UserService.Application.DTOs;
 
 /// <summary>

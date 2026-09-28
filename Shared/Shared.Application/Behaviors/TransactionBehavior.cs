@@ -1,7 +1,8 @@
 using MediatR;
+
 using Microsoft.Extensions.Logging;
+
 using Shared.Application.Abstractions;
-using Shared.Application.Behaviors;
 using Shared.Domain;
 using Shared.Domain.Abstractions;
 
@@ -23,18 +24,18 @@ namespace Shared.Application.Behaviors;
 public sealed class TransactionBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IDomainEventDispatcher _eventDispatcher;
-    private readonly ILogger<TransactionBehavior<TRequest, TResponse>> _logger;
+    private readonly IUnitOfWork unitOfWork;
+    private readonly IDomainEventDispatcher eventDispatcher;
+    private readonly ILogger<TransactionBehavior<TRequest, TResponse>> logger;
 
     public TransactionBehavior(
         IUnitOfWork unitOfWork,
         IDomainEventDispatcher eventDispatcher,
         ILogger<TransactionBehavior<TRequest, TResponse>> logger)
     {
-        _unitOfWork = unitOfWork;
-        _eventDispatcher = eventDispatcher;
-        _logger = logger;
+        this.unitOfWork = unitOfWork;
+        this.eventDispatcher = eventDispatcher;
+        this.logger = logger;
     }
 
     public async Task<TResponse> Handle(
@@ -46,26 +47,33 @@ public sealed class TransactionBehavior<TRequest, TResponse> : IPipelineBehavior
         if (request is not ICommand)
             return await next().ConfigureAwait(false);
 
-        _logger.LogInformation("[TransactionBehavior] Beginning transaction for {Request}", typeof(TRequest).Name);
-        await _unitOfWork.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        logger.LogInformation("[TransactionBehavior] Beginning transaction for {Request}", typeof(TRequest).Name);
+        await unitOfWork.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+
+        // Seed the collector HERE, in the pipeline's own execution context. AsyncLocal
+        // mutations do not flow back out of an awaited callee, so without this the
+        // handler's DomainEventCollector.Add() allocates a list this pipeline can never
+        // see, and the post-commit Drain() below returns empty -- silently dropping every
+        // domain event. See DomainEventCollector.Seed for the full explanation.
+        DomainEventCollector.Seed();
 
         try
         {
             var response = await next().ConfigureAwait(false);
-            await _unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
-            _logger.LogInformation("[TransactionBehavior] Transaction committed for {Request}", typeof(TRequest).Name);
+            await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
+            logger.LogInformation("[TransactionBehavior] Transaction committed for {Request}", typeof(TRequest).Name);
 
             // Post-commit dispatch: broker publishes happen outside the transaction.
             var pending = DomainEventCollector.Drain();
             foreach (var evt in pending)
-                await _eventDispatcher.PublishAsync(evt, cancellationToken).ConfigureAwait(false);
+                await eventDispatcher.PublishAsync(evt, cancellationToken).ConfigureAwait(false);
 
             return response;
         }
         catch
         {
-            _logger.LogWarning("[TransactionBehavior] Rolling back transaction for {Request}", typeof(TRequest).Name);
-            await _unitOfWork.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            logger.LogWarning("[TransactionBehavior] Rolling back transaction for {Request}", typeof(TRequest).Name);
+            await unitOfWork.RollbackAsync(cancellationToken).ConfigureAwait(false);
             DomainEventCollector.Clear();
             throw;
         }

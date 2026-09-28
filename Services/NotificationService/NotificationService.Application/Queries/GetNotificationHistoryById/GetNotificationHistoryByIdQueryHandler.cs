@@ -1,4 +1,5 @@
 using MediatR;
+
 using NotificationService.Application.DTOs;
 using NotificationService.Application.Mappings;
 
@@ -6,16 +7,16 @@ namespace NotificationService.Application.Queries.GetNotificationHistoryById;
 
 public sealed class GetNotificationHistoryByIdQueryHandler : IRequestHandler<GetNotificationHistoryByIdQuery, NotificationHistoryDto?>
 {
-    private readonly Domain.Abstractions.INotificationHistoryRepository _repository;
+    private readonly Domain.Abstractions.INotificationHistoryRepository repository;
 
     public GetNotificationHistoryByIdQueryHandler(Domain.Abstractions.INotificationHistoryRepository repository)
     {
-        _repository = repository;
+        this.repository = repository;
     }
 
     public async Task<NotificationHistoryDto?> Handle(GetNotificationHistoryByIdQuery request, CancellationToken cancellationToken)
     {
-        var record = await _repository.GetByIdAsync(request.NotificationId, request.UserId, cancellationToken).ConfigureAwait(false);
+        var record = await repository.GetByIdAsync(request.NotificationId, request.UserId, cancellationToken).ConfigureAwait(false);
         return record?.ToDto();
     }
 }

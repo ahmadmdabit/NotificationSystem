@@ -1,7 +1,10 @@
 using MediatR;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+
 using Shared.Helpers;
+
 using UserService.Application.Commands.AuthenticateUser;
 using UserService.Application.Commands.DeleteUser;
 using UserService.Application.Commands.RegisterUser;
@@ -16,11 +19,11 @@ namespace UserService.Api.Controllers;
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly IMediator mediator;
 
     public UsersController(IMediator mediator)
     {
-        _mediator = mediator;
+        this.mediator = mediator;
     }
 
     [HttpPost("Register")]
@@ -32,7 +35,7 @@ public class UsersController : ControllerBase
         // DuplicateEntityException (pre-check + UXUsersUsername race) and ValidationException
         // are translated to 400/ApiResult by ApiExceptionHandler; no local catch so the
         // single translation point owns the envelope.
-        var result = await _mediator.Send(command, cancellationToken).ConfigureAwait(false);
+        var result = await mediator.Send(command, cancellationToken).ConfigureAwait(false);
         return Ok(new ApiResult<UserDto>(true, result));
     }
 
@@ -42,7 +45,7 @@ public class UsersController : ControllerBase
         [FromBody] AuthenticateUserCommand command,
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(command, cancellationToken).ConfigureAwait(false);
+        var result = await mediator.Send(command, cancellationToken).ConfigureAwait(false);
         if (result is null)
             return BadRequest(new ApiResult<AuthenticateResultDto>(false, default, 0, "Invalid credentials."));
 
@@ -54,7 +57,7 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<ApiResult<IReadOnlyList<UserReadDto>>>> GetAllAsync(
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new GetAllUsersQuery(), cancellationToken).ConfigureAwait(false);
+        var result = await mediator.Send(new GetAllUsersQuery(), cancellationToken).ConfigureAwait(false);
         return Ok(new ApiResult<IReadOnlyList<UserReadDto>>(true, result));
     }
 
@@ -64,7 +67,7 @@ public class UsersController : ControllerBase
         long id,
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new GetUserByIdQuery(id), cancellationToken).ConfigureAwait(false);
+        var result = await mediator.Send(new GetUserByIdQuery(id), cancellationToken).ConfigureAwait(false);
         if (result is null)
             return NotFound(new ApiResult<UserReadDto>(false, default, 404, "User not found."));
 
@@ -77,7 +80,7 @@ public class UsersController : ControllerBase
         string username,
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new GetUserByUsernameQuery(username), cancellationToken).ConfigureAwait(false);
+        var result = await mediator.Send(new GetUserByUsernameQuery(username), cancellationToken).ConfigureAwait(false);
         if (result is null)
             // Generic message: echoing the identifier confirms account existence.
             return NotFound(new ApiResult<UserReadDto>(false, default, 404, "User not found."));
@@ -91,7 +94,7 @@ public class UsersController : ControllerBase
         long id,
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new DeleteUserCommand(id), cancellationToken).ConfigureAwait(false);
+        var result = await mediator.Send(new DeleteUserCommand(id), cancellationToken).ConfigureAwait(false);
         if (!result)
             return NotFound(new ApiResult<bool>(false, default, 404, "User not found."));
 

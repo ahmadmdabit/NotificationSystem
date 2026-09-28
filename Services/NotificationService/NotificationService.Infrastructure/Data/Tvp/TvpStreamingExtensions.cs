@@ -1,5 +1,3 @@
-using System.Data;
-using System.Runtime.CompilerServices;
 using Microsoft.Data.SqlClient.Server;
 
 namespace NotificationService.Infrastructure.Data.Tvp;

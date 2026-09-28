@@ -1,7 +1,8 @@
 using FluentValidation;
+
 using MediatR;
+
 using Microsoft.Extensions.DependencyInjection;
-using Shared.Application.Behaviors;
 
 namespace NotificationService.Application;
 

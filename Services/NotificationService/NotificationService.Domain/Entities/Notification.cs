@@ -1,5 +1,6 @@
 using NotificationService.Domain.Events;
 using NotificationService.Domain.ValueObjects;
+
 using Shared.Domain;
 
 namespace NotificationService.Domain.Entities;
@@ -17,10 +18,36 @@ public sealed class Notification
     public DateTime? CreatedAt { get; private set; }
     public DateTime? UpdatedAt { get; private set; }
 
-    private readonly List<DomainEvent> _domainEvents = new();
-    public IReadOnlyCollection<DomainEvent> DomainEvents => _domainEvents.AsReadOnly();
+    private readonly List<DomainEvent> domainEvents = new();
+    public IReadOnlyCollection<DomainEvent> DomainEvents => domainEvents.AsReadOnly();
 
     private Notification() { }
+
+    /// <summary>
+    /// Rehydrates an existing row from persistence. Bypasses the Draft-state and
+    /// validation rules of <see cref="Create"/> because the state already exists —
+    /// there is nothing to validate, and the current status must be preserved.
+    /// </summary>
+    public static Notification Rehydrate(
+        long id,
+        string title,
+        string content,
+        NotificationStatus status,
+        DateTime? sentAt = null,
+        DateTime? createdAt = null,
+        DateTime? updatedAt = null)
+    {
+        return new Notification
+        {
+            Id = id,
+            Title = title,
+            Content = content,
+            Status = status,
+            SentAt = sentAt,
+            CreatedAt = createdAt,
+            UpdatedAt = updatedAt
+        };
+    }
 
     public static Notification Create(string title, string content)
     {
@@ -70,6 +97,6 @@ public sealed class Notification
         return true;
     }
 
-    public void AddDomainEvent(DomainEvent evt) => _domainEvents.Add(evt);
-    public void ClearDomainEvents() => _domainEvents.Clear();
+    public void AddDomainEvent(DomainEvent evt) => domainEvents.Add(evt);
+    public void ClearDomainEvents() => domainEvents.Clear();
 }

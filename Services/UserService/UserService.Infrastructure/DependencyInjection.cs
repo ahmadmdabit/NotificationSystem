@@ -1,10 +1,13 @@
 using System.Data;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+
 using Shared.Application.Abstractions;
 using Shared.Domain.Abstractions;
 using Shared.Helpers;
 using Shared.Infrastructure;
+
 using UserService.Domain.Abstractions;
 using UserService.Infrastructure.Messaging;
 using UserService.Infrastructure.Repositories;
@@ -39,12 +42,22 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<ITokenService, JwtTokenService>();
 
-        // Messaging (in-memory for dev, RabbitMQ for prod)
-        services.AddMassTransitForUserService(configuration);
+        // Messaging (in-memory for dev, RabbitMQ for prod).
+        if (MassTransitConfigurator.IsMessagingEnabled(configuration))
+        {
+            services.AddMassTransitForUserService(configuration);
 
-        // Domain event dispatcher — single shared MassTransit implementation
-        // (DRY: replaces the identical per-service *EventPublisher clones).
-        services.AddScoped<IDomainEventDispatcher, MassTransitDomainEventDispatcher>();
+            // Domain event dispatcher — single shared MassTransit implementation
+            // (DRY: replaces the identical per-service *EventPublisher clones).
+            services.AddScoped<IDomainEventDispatcher, MassTransitDomainEventDispatcher>();
+        }
+        else
+        {
+            // No bus is registered, so MassTransitDomainEventDispatcher would be unresolvable and
+            // the post-commit dispatch path in TransactionBehavior would fail. A null object keeps
+            // the pipeline working; events are dropped and that is logged.
+            services.AddScoped<IDomainEventDispatcher, NullDomainEventDispatcher>();
+        }
 
         return services;
     }

@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[sp_RegisterUser]
+CREATE OR ALTER PROCEDURE [dbo].[SPRegisterUser]
     @Username NVARCHAR(50),
     @PasswordHash BINARY(64),
     @PasswordSalt BINARY(32)

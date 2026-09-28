@@ -1,27 +1,38 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <IsPackable>false</IsPackable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<LangVersion>14.0</LangVersion>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+		<IsPackable>false</IsPackable>
+		<TUnitImplicitUsings>false</TUnitImplicitUsings>
+		<TUnitAssertionsImplicitUsings>false</TUnitAssertionsImplicitUsings>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
-    <PackageReference Include="NUnit" Version="4.6.1" />
-    <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.12" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.12" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="TUnit" Version="1.69.0" />
+		<PackageReference Include="TUnit.AspNetCore" Version="1.69.0" />
+		<PackageReference Include="TUnit.Mocks" Version="1.69.0" />
+		<PackageReference Include="TUnit.Mocks.Assertions" Version="1.69.0" />
+		<PackageReference Include="TUnit.Mocks.Logging" Version="1.69.0" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\Services\UserService\UserService.Application\UserService.Application.csproj" />
-    <ProjectReference Include="..\..\Services\UserService\UserService.Infrastructure\UserService.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\Services\NotificationService\NotificationService.Application\NotificationService.Application.csproj" />
-    <ProjectReference Include="..\..\Services\NotificationService\NotificationService.Infrastructure\NotificationService.Infrastructure.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\..\Services\UserService\UserService.Application\UserService.Application.csproj" />
+		<ProjectReference Include="..\..\Services\UserService\UserService.Infrastructure\UserService.Infrastructure.csproj" />
+		<ProjectReference Include="..\..\Services\NotificationService\NotificationService.Application\NotificationService.Application.csproj" />
+		<ProjectReference Include="..\..\Services\NotificationService\NotificationService.Infrastructure\NotificationService.Infrastructure.csproj" />
+		<ProjectReference Include="..\..\Services\UserService\UserService.Api\UserService.Api.csproj" />
+		<ProjectReference Include="..\..\Services\NotificationService\NotificationService.Api\NotificationService.Api.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- Required for AddExceptionHandler<T>() / AddControllers(), which the
+		     R-16 API-registration guard mirrors from each Program.cs. -->
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
 
 </Project>

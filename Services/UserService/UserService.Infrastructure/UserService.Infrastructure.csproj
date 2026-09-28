@@ -31,8 +31,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Persistence\StoredProcedures\sp_RegisterUser.sql" />
-    <EmbeddedResource Include="Persistence\StoredProcedures\sp_AuthenticateUser.sql" />
+    <EmbeddedResource Include="Persistence\StoredProcedures\SPRegisterUser.sql" />
+    <EmbeddedResource Include="Persistence\StoredProcedures\SPAuthenticateUser.sql" />
   </ItemGroup>
 
 </Project>

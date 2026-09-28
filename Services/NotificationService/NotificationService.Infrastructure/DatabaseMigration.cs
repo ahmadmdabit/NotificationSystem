@@ -1,9 +1,11 @@
+using System.Reflection;
+
 using Dapper;
+
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+
 using Shared.Infrastructure;
-using System.Reflection;
-using System.IO;
 
 namespace NotificationService.Infrastructure;
 
@@ -60,8 +62,22 @@ public class DatabaseMigration : DatabaseMigrationBase
                 BEGIN
                     SET NOCOUNT ON;
                     BEGIN TRY
+                        -- Idempotent by construction (N-07). NotificationHistories has
+                        -- PRIMARY KEY (NotificationId, UserId), so an unguarded INSERT made a
+                        -- second send of the same pair fail with a PK violation -> @SPSuccess = 0
+                        -- -> repository throws -> HTTP 500. Filtering the TVP against existing
+                        -- rows makes a repeat pair a silent no-op and the send genuinely
+                        -- idempotent. The NOT EXISTS also covers soft-deleted rows (IsDeleted = 1),
+                        -- which still occupy the key and must not be re-inserted.
                         INSERT INTO [dbo].[NotificationHistories] (NotificationId, UserId, CreatedAt, IsDeleted)
-                        SELECT NotificationId, UserId, GETUTCDATE(), 0 FROM @Entities;
+                        SELECT e.NotificationId, e.UserId, GETUTCDATE(), 0
+                        FROM @Entities e
+                        WHERE NOT EXISTS (
+                            SELECT 1
+                            FROM [dbo].[NotificationHistories] h
+                            WHERE h.NotificationId = e.NotificationId
+                              AND h.UserId = e.UserId
+                        );
                         SET @SPSuccess = 1;
                         SET @SPMessage = 'Success';
                     END TRY
@@ -80,8 +96,8 @@ public class DatabaseMigration : DatabaseMigrationBase
         var assembly = Assembly.GetExecutingAssembly();
         var resourceNames = new[]
         {
-            "NotificationService.Infrastructure.Persistence.StoredProcedures.sp_InsertNotification.sql",
-            "NotificationService.Infrastructure.Persistence.StoredProcedures.sp_UpdateNotification.sql"
+            "NotificationService.Infrastructure.Persistence.StoredProcedures.SPInsertNotification.sql",
+            "NotificationService.Infrastructure.Persistence.StoredProcedures.SPUpdateNotification.sql"
         };
 
         foreach (var resourceName in resourceNames)

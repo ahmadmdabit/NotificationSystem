@@ -280,5 +280,10 @@ __pycache__/
 
 .env
 
+TestResults/
+coverage-log.txt
+coverage-output.txt
+coverage.xml
+
 # IdentityServer developer signing credentials (auto-generated, contains private key material)
 **/tempkey.rsa

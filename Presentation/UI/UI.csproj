@@ -6,6 +6,13 @@
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
+	<!-- ApiController.ForwardAsync and GatewayApiClient's client-factory seam are internal
+	     specifically so they can be unit tested. This is an item, not a property; it needs
+	     GenerateAssemblyInfo (default true). -->
+	<ItemGroup>
+		<InternalsVisibleTo Include="UI.Tests" />
+	</ItemGroup>
+
 	<ItemGroup>
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<PackageReference Include="RestSharp" Version="114.0.0" />

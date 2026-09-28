@@ -1,6 +1,8 @@
 using System.Data;
 using System.Runtime.CompilerServices;
+
 using Microsoft.Data.SqlClient.Server;
+
 using NotificationService.Domain;
 
 namespace NotificationService.Infrastructure.Data.Tvp;

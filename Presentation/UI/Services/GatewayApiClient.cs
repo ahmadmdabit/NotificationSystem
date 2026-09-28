@@ -20,6 +20,16 @@ public class GatewayApiClient : IGatewayApiClient
     private bool disposedValue;
 
     public GatewayApiClient(IOptions<ApiSettings> options)
+        : this(options, static baseUrl => new RestClient(baseUrl))
+    {
+    }
+
+    /// <param name="clientFactory">
+    /// Creates the RestSharp client for a base URL. Exists as a seam so tests can inject a client
+    /// with a stub <see cref="HttpMessageHandler"/> instead of opening a real socket — RestSharp
+    /// offers no way to reach the handler once the client is constructed from a base URL alone.
+    /// </param>
+    internal GatewayApiClient(IOptions<ApiSettings> options, Func<string, RestClient> clientFactory)
     {
         settings = options.Value;
         if (string.IsNullOrWhiteSpace(settings.GatewayBaseUrl))
@@ -31,7 +41,7 @@ public class GatewayApiClient : IGatewayApiClient
             throw new InvalidOperationException(
                 "ApiSettings:ServiceUsername and ServicePassword are required so the UI can obtain a JWT.");
         }
-        client = new RestClient(settings.GatewayBaseUrl);
+        client = clientFactory(settings.GatewayBaseUrl);
     }
 
     public Task<RestResponse> GetAsync(string path, CancellationToken cancellationToken)

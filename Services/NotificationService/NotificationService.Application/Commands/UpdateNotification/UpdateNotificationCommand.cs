@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using Shared.Application.Behaviors;
 
 namespace NotificationService.Application.Commands.UpdateNotification;

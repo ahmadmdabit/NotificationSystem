@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+
 using UserService.Domain.Abstractions;
 
 namespace UserService.Infrastructure.Services;

@@ -1,9 +1,11 @@
+using System.Reflection;
+
 using Dapper;
+
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+
 using Shared.Infrastructure;
-using System.Reflection;
-using System.IO;
 
 namespace UserService.Infrastructure;
 
@@ -46,8 +48,8 @@ public class DatabaseMigration : DatabaseMigrationBase
         var assembly = Assembly.GetExecutingAssembly();
         var resourceNames = new[]
         {
-            "UserService.Infrastructure.Persistence.StoredProcedures.sp_RegisterUser.sql",
-            "UserService.Infrastructure.Persistence.StoredProcedures.sp_AuthenticateUser.sql"
+            "UserService.Infrastructure.Persistence.StoredProcedures.SPRegisterUser.sql",
+            "UserService.Infrastructure.Persistence.StoredProcedures.SPAuthenticateUser.sql"
         };
 
         foreach (var resourceName in resourceNames)

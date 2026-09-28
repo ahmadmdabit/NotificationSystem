@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<LangVersion>14.0</LangVersion>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<IsPackable>false</IsPackable>
+		<TUnitImplicitUsings>false</TUnitImplicitUsings>
+		<TUnitAssertionsImplicitUsings>false</TUnitAssertionsImplicitUsings>
+	</PropertyGroup>
+
+	<!-- No <Compile Remove> entries. Every one that was here named a file that does not exist,
+	     which is a latent trap: a future file with one of those names is silently excluded from
+	     the build and reports no error. Keep this ItemGroup absent unless a real file must be
+	     excluded. -->
+
+	<ItemGroup>
+		<!-- Same version already pinned by both *.Infrastructure.csproj. Needed by
+		     CommandParameterNames, which reads Dapper's CommandDefinition/DynamicParameters.
+		     Asserting the helper against a different Dapper major would test the wrong contract. -->
+		<PackageReference Include="Dapper" Version="2.1.86" />
+		<PackageReference Include="Microsoft.Data.SqlClient" Version="7.1.0" />
+		<PackageReference Include="TUnit" Version="1.69.0" />
+		<PackageReference Include="TUnit.AspNetCore" Version="1.69.0" />
+		<PackageReference Include="TUnit.Mocks" Version="1.69.0" />
+		<PackageReference Include="TUnit.Mocks.Assertions" Version="1.69.0" />
+		<PackageReference Include="TUnit.Mocks.Logging" Version="1.69.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+		<PackageReference Include="RestSharp" Version="114.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\..\Presentation\UI\UI.csproj" />
+		<ProjectReference Include="..\..\..\Services\NotificationService\NotificationService.Domain\NotificationService.Domain.csproj" />
+		<ProjectReference Include="..\..\..\Services\NotificationService\NotificationService.Application\NotificationService.Application.csproj" />
+		<ProjectReference Include="..\..\..\Services\UserService\UserService.Domain\UserService.Domain.csproj" />
+		<ProjectReference Include="..\..\..\Services\UserService\UserService.Application\UserService.Application.csproj" />
+		<ProjectReference Include="..\..\..\Shared\Shared.Application\Shared.Application.csproj" />
+	</ItemGroup>
+
+</Project>

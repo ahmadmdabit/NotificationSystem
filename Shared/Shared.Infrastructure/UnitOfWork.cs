@@ -1,5 +1,7 @@
 using System.Data;
+
 using Microsoft.Data.SqlClient;
+
 using Shared.Application.Abstractions;
 
 namespace Shared.Infrastructure;
@@ -10,50 +12,50 @@ namespace Shared.Infrastructure;
 /// </summary>
 public sealed class UnitOfWork : IUnitOfWork
 {
-    private readonly IDbConnection _connection;
-    private IDbTransaction? _transaction;
-    private bool _disposed;
+    private readonly IDbConnection connection;
+    private IDbTransaction? transaction;
+    private bool disposed;
 
     public UnitOfWork(IDbConnection connection)
     {
-        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
+        this.connection = connection ?? throw new ArgumentNullException(nameof(connection));
     }
 
-    public IDbTransaction? Transaction => _transaction;
+    public IDbTransaction? Transaction => transaction;
 
     public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
     {
-        if (_transaction is not null)
+        if (transaction is not null)
             throw new InvalidOperationException("A transaction is already in progress.");
 
-        if (_connection.State != ConnectionState.Open)
+        if (connection.State != ConnectionState.Open)
         {
-            if (_connection is SqlConnection sqlConnection)
+            if (connection is SqlConnection sqlConnection)
                 await sqlConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
             else
-                _connection.Open();
+                connection.Open();
         }
 
-        _transaction = _connection.BeginTransaction();
+        transaction = connection.BeginTransaction();
     }
 
     public Task CommitAsync(CancellationToken cancellationToken = default)
     {
-        if (_transaction is null)
+        if (transaction is null)
             throw new InvalidOperationException("No transaction in progress.");
-        _transaction.Commit();
-        _transaction.Dispose();
-        _transaction = null;
+        transaction.Commit();
+        transaction.Dispose();
+        transaction = null;
         return Task.CompletedTask;
     }
 
     public Task RollbackAsync(CancellationToken cancellationToken = default)
     {
-        if (_transaction is null)
+        if (transaction is null)
             throw new InvalidOperationException("No transaction in progress.");
-        _transaction.Rollback();
-        _transaction.Dispose();
-        _transaction = null;
+        transaction.Rollback();
+        transaction.Dispose();
+        transaction = null;
         return Task.CompletedTask;
     }
 
@@ -66,11 +68,11 @@ public sealed class UnitOfWork : IUnitOfWork
 
     public void Dispose()
     {
-        if (!_disposed)
+        if (!disposed)
         {
-            _transaction?.Dispose();
-            _transaction = null;
-            _disposed = true;
+            transaction?.Dispose();
+            transaction = null;
+            disposed = true;
         }
         GC.SuppressFinalize(this);
     }

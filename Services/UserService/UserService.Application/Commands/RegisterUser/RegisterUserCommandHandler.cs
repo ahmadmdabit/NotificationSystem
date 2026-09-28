@@ -1,6 +1,8 @@
 using MediatR;
-using UserService.Application.DTOs;
+
 using Shared.Domain.Exceptions;
+
+using UserService.Application.DTOs;
 using UserService.Domain.Abstractions;
 using UserService.Domain.Entities;
 using UserService.Domain.Events;
@@ -12,33 +14,33 @@ namespace UserService.Application.Commands.RegisterUser;
 /// </summary>
 public sealed class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, UserDto>
 {
-    private readonly IUserRepository _repository;
-    private readonly IPasswordHasher _passwordHasher;
+    private readonly IUserRepository repository;
+    private readonly IPasswordHasher passwordHasher;
 
     public RegisterUserCommandHandler(
         IUserRepository repository,
         IPasswordHasher passwordHasher)
     {
-        _repository = repository ?? throw new ArgumentNullException(nameof(repository));
-        _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
+        this.repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        this.passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
     }
 
     public async Task<UserDto> Handle(RegisterUserCommand request, CancellationToken cancellationToken)
     {
         // Check for existing user
-        var existing = await _repository.GetByUsernameAsync(request.Username, cancellationToken).ConfigureAwait(false);
+        var existing = await repository.GetByUsernameAsync(request.Username, cancellationToken).ConfigureAwait(false);
         if (existing is not null)
             throw new DuplicateEntityException("User", "Registration failed. The username may already be taken.");
 
         // Create domain entity
-        var user = User.Create(request.Username, request.Password, _passwordHasher);
+        var user = User.Create(request.Username, request.Password, passwordHasher);
 
         UserDto result;
         try
         {
-            // Persist first: the identity is assigned by sp_RegisterUser, so the event
+            // Persist first: the identity is assigned by SPRegisterUser, so the event
             // must be raised from the persisted aggregate (its Id), not the transient one.
-            var created = await _repository.InsertAsync(user, cancellationToken).ConfigureAwait(false);
+            var created = await repository.InsertAsync(user, cancellationToken).ConfigureAwait(false);
             created.AddDomainEvent(new UserRegisteredEvent(created.Id, created.Username));
 
             // Dispatch-after-commit: record on the ambient collector; TransactionBehavior

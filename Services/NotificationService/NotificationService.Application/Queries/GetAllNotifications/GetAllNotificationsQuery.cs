@@ -1,4 +1,5 @@
 using MediatR;
+
 using NotificationService.Application.DTOs;
 
 namespace NotificationService.Application.Queries.GetAllNotifications;

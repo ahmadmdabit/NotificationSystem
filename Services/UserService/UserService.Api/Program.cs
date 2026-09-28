@@ -1,9 +1,11 @@
 using System.Text;
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+
 using UserService.Application;
 using UserService.Infrastructure;
 
@@ -18,7 +20,7 @@ builder.Services.AddUserServiceApplication();
 // JWT Auth
 var secret = builder.Configuration["AppSettings:Secret"];
 if (string.IsNullOrWhiteSpace(secret))
-    throw new InvalidOperationException("AppSettings:Secret is not configured. Generate one: openssl rand -hex 32");
+    throw new InvalidOperationException("AppSettings:Secret is not configured. Generate one: openssl rand -hex 64");
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options => options.TokenValidationParameters = new TokenValidationParameters
@@ -79,13 +81,12 @@ builder.Services.AddHostedService<UserService.Infrastructure.DatabaseMigration>(
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+// ApiResult envelope in every environment (no developer exception page). HSTS is
+// transport hardening, not error handling, so it stays non-Development-only (N-05).
+app.UseExceptionHandler();
+
+if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler(); // ApiResult envelope in every environment (no developer page)
-}
-else
-{
-    app.UseExceptionHandler();
     app.UseHsts();
 }
 

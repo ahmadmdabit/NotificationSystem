@@ -1,4 +1,5 @@
 using MediatR;
+
 using UserService.Application.DTOs;
 using UserService.Application.Mappings;
 using UserService.Domain.Abstractions;
@@ -10,16 +11,16 @@ namespace UserService.Application.Queries.GetAllUsers;
 /// </summary>
 public sealed class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, IReadOnlyList<UserReadDto>>
 {
-    private readonly IUserRepository _repository;
+    private readonly IUserRepository repository;
 
     public GetAllUsersQueryHandler(IUserRepository repository)
     {
-        _repository = repository;
+        this.repository = repository;
     }
 
     public async Task<IReadOnlyList<UserReadDto>> Handle(GetAllUsersQuery request, CancellationToken cancellationToken)
     {
-        var users = await _repository.GetAllAsync(cancellationToken).ConfigureAwait(false);
+        var users = await repository.GetAllAsync(cancellationToken).ConfigureAwait(false);
         return users.Select(u => u.ToReadDto()).ToList();
     }
 }

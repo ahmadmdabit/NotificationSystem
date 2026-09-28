@@ -1,9 +1,11 @@
 using MediatR;
+
 using Microsoft.Extensions.Options;
+
 using Shared.Helpers;
+
 using UserService.Application.DTOs;
 using UserService.Domain.Abstractions;
-using UserService.Domain.Entities;
 
 namespace UserService.Application.Commands.AuthenticateUser;
 
@@ -13,10 +15,10 @@ namespace UserService.Application.Commands.AuthenticateUser;
 /// </summary>
 public sealed class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCommand, AuthenticateResultDto?>
 {
-    private readonly IUserRepository _repository;
-    private readonly IPasswordHasher _passwordHasher;
-    private readonly ITokenService _tokenService;
-    private readonly AppSettings _settings;
+    private readonly IUserRepository repository;
+    private readonly IPasswordHasher passwordHasher;
+    private readonly ITokenService tokenService;
+    private readonly AppSettings settings;
 
     public AuthenticateUserCommandHandler(
         IUserRepository repository,
@@ -24,26 +26,26 @@ public sealed class AuthenticateUserCommandHandler : IRequestHandler<Authenticat
         ITokenService tokenService,
         IOptions<AppSettings> settings)
     {
-        _repository = repository;
-        _passwordHasher = passwordHasher;
-        _tokenService = tokenService;
-        _settings = settings?.Value ?? throw new ArgumentNullException(nameof(settings));
+        this.repository = repository;
+        this.passwordHasher = passwordHasher;
+        this.tokenService = tokenService;
+        this.settings = settings?.Value ?? throw new ArgumentNullException(nameof(settings));
     }
 
     public async Task<AuthenticateResultDto?> Handle(AuthenticateUserCommand request, CancellationToken cancellationToken)
     {
-        var user = await _repository.GetByUsernameAsync(request.Username, cancellationToken).ConfigureAwait(false);
+        var user = await repository.GetByUsernameAsync(request.Username, cancellationToken).ConfigureAwait(false);
         if (user is null)
         {
             // Dummy PBKDF2 on credential-miss: equalizes CPU cost so unknown usernames do not
             // answer measurably faster than wrong-password attempts (timing oracle).
-            _passwordHasher.HashPassword(request.Password, out _, out _);
+            passwordHasher.HashPassword(request.Password, out _, out _);
             return null;
         }
 
         try
         {
-            user.VerifyPassword(request.Password, _passwordHasher);
+            user.VerifyPassword(request.Password, passwordHasher);
         }
         catch (UnauthorizedAccessException)
         {
@@ -51,7 +53,7 @@ public sealed class AuthenticateUserCommandHandler : IRequestHandler<Authenticat
         }
 
         var role = IsServiceAccount(user.Username) ? "service" : null;
-        var token = _tokenService.GenerateToken(user.Id, role);
+        var token = tokenService.GenerateToken(user.Id, role);
 
         return new AuthenticateResultDto
         {
@@ -62,5 +64,5 @@ public sealed class AuthenticateUserCommandHandler : IRequestHandler<Authenticat
     }
 
     private bool IsServiceAccount(string username)
-        => string.Equals(username, _settings.ServiceAccountUsername, StringComparison.OrdinalIgnoreCase);
+        => string.Equals(username, settings.ServiceAccountUsername, StringComparison.OrdinalIgnoreCase);
 }

@@ -26,8 +26,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Persistence\StoredProcedures\sp_InsertNotification.sql" />
-    <EmbeddedResource Include="Persistence\StoredProcedures\sp_UpdateNotification.sql" />
+    <EmbeddedResource Include="Persistence\StoredProcedures\SPInsertNotification.sql" />
+    <EmbeddedResource Include="Persistence\StoredProcedures\SPUpdateNotification.sql" />
   </ItemGroup>
 
 </Project>

@@ -1,8 +1,8 @@
-﻿using Shared.Helpers;
-
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 
 using RestSharp;
+
+using Shared.Helpers;
 
 using UI.Models;
 using UI.Services;
@@ -83,7 +83,7 @@ public class ApiController : Controller
         }
         catch (Exception exc)
         {
-            return StatusCode(500, new ApiResult<dynamic>(false, error: new ErrorResult(0, exc, env)));
+            return StatusCode(500, new ApiResult<dynamic>(false, error: new ErrorResult(0, exc, env.EnvironmentName)));
         }
     }
 }

@@ -1,6 +1,6 @@
 using MediatR;
+
 using UserService.Application.DTOs;
-using UserService.Domain.Abstractions;
 
 namespace UserService.Application.Queries.GetUserByUsername;
 

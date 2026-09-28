@@ -1,6 +1,4 @@
-using Shared.Domain;
 using UserService.Domain.Abstractions;
-using UserService.Domain.Events;
 using UserService.Domain.ValueObjects;
 
 namespace UserService.Domain.Entities;
@@ -16,8 +14,8 @@ public sealed class User
     public DateTime? CreatedAt { get; private set; }
     public DateTime? UpdatedAt { get; private set; }
 
-    private readonly List<Shared.Domain.DomainEvent> _domainEvents = new();
-    public IReadOnlyCollection<Shared.Domain.DomainEvent> DomainEvents => _domainEvents.AsReadOnly();
+    private readonly List<Shared.Domain.DomainEvent> domainEvents = new();
+    public IReadOnlyCollection<Shared.Domain.DomainEvent> DomainEvents => domainEvents.AsReadOnly();
 
     private User() { }
 
@@ -76,6 +74,6 @@ public sealed class User
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public void AddDomainEvent(Shared.Domain.DomainEvent evt) => _domainEvents.Add(evt);
-    public void ClearDomainEvents() => _domainEvents.Clear();
+    public void AddDomainEvent(Shared.Domain.DomainEvent evt) => domainEvents.Add(evt);
+    public void ClearDomainEvents() => domainEvents.Clear();
 }

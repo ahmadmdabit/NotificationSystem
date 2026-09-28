@@ -1,8 +1,10 @@
 using ArchUnitNET.Domain;
-using ArchUnitNET.Loader;
 using ArchUnitNET.Fluent;
-using ArchUnitNET.NUnit;
-using NUnit.Framework;
+using ArchUnitNET.Loader;
+using ArchUnitNET.TUnit;
+
+using TUnit.Core;
+
 using static ArchUnitNET.Fluent.ArchRuleDefinition;
 
 namespace ArchitectureTests;

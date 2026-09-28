@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[sp_InsertNotification]
+CREATE OR ALTER PROCEDURE [dbo].[SPInsertNotification]
     @Title NVARCHAR(200),
     @Content NVARCHAR(MAX),
     @Status INT,

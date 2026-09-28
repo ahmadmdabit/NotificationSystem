@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+
 using Shared.Application.Behaviors;
 
 namespace NotificationService.Application.Commands.SendNotifications;
@@ -15,7 +16,7 @@ public sealed class SendNotificationItem
 /// <summary>
 /// Command to send notifications to users (matches UI contract: list of history records).
 /// </summary>
-public sealed class SendNotificationsCommand : MediatR.IRequest<bool>, ICommand
+public sealed class SendNotificationsCommand : MediatR.IRequest, ICommand
 {
     /// <summary>
     /// Batch cap enforced by FluentValidation (SendNotificationsCommandValidator);

@@ -1,5 +1,3 @@
-using NotificationService.Domain;
-
 namespace NotificationService.Domain.Abstractions;
 
 /// <summary>

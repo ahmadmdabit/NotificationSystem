@@ -1,5 +1,4 @@
 using MassTransit;
-using Shared.Domain;
 
 namespace Shared.Infrastructure;
 
@@ -9,15 +8,15 @@ namespace Shared.Infrastructure;
 /// </summary>
 public sealed class MassTransitDomainEventDispatcher : Shared.Domain.Abstractions.IDomainEventDispatcher
 {
-    private readonly IPublishEndpoint _publishEndpoint;
+    private readonly IPublishEndpoint publishEndpoint;
 
     public MassTransitDomainEventDispatcher(IPublishEndpoint publishEndpoint)
     {
-        _publishEndpoint = publishEndpoint ?? throw new ArgumentNullException(nameof(publishEndpoint));
+        this.publishEndpoint = publishEndpoint ?? throw new ArgumentNullException(nameof(publishEndpoint));
     }
 
     public async Task PublishAsync<T>(T domainEvent, CancellationToken cancellationToken = default) where T : Shared.Domain.DomainEvent
     {
-        await _publishEndpoint.Publish(domainEvent, cancellationToken).ConfigureAwait(false);
+        await publishEndpoint.Publish(domainEvent, cancellationToken).ConfigureAwait(false);
     }
 }

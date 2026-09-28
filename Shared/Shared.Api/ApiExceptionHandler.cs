@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+
 using Shared.Domain.Exceptions;
 using Shared.Helpers;
 
@@ -13,18 +14,28 @@ namespace Shared.Api;
 /// a controller happens to catch. Registered via
 /// <c>services.AddExceptionHandler&lt;ApiExceptionHandler&gt;()</c> + <c>app.UseExceptionHandler()</c>.
 /// </summary>
+/// <remarks>
+/// The constructor must take <see cref="IHostEnvironment"/>, never a bare <c>string</c>. This type
+/// is resolved from the container, and nothing registers a <c>string</c> — a primitive parameter
+/// compiles cleanly and then throws the first time an unhandled exception is handled, which is
+/// exactly where the <c>ApiResult</c> envelope must be produced. Registering <c>AddSingleton
+/// &lt;string&gt;</c> to compensate is not an acceptable fix: a bare <c>string</c> in the container
+/// is ambiguous as soon as a second consumer needs one, and leaves a security-relevant value
+/// (<c>EnvironmentName</c>, which gates diagnostic redaction) resolvable as an untyped primitive.
+/// Pinned by <c>WiringTests.DependencyInjectionTests.*_ApiRegistrations_AllResolve</c>.
+/// </remarks>
 public sealed class ApiExceptionHandler : IExceptionHandler
 {
     private const string UnexpectedMessage = "An unexpected error occurred.";
     private const string ValidationMessage = "One or more validation errors occurred.";
 
-    private readonly ILogger<ApiExceptionHandler> _logger;
-    private readonly IHostEnvironment _environment;
+    private readonly ILogger<ApiExceptionHandler> logger;
+    private readonly IHostEnvironment environment;
 
     public ApiExceptionHandler(ILogger<ApiExceptionHandler> logger, IHostEnvironment environment)
     {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _environment = environment ?? throw new ArgumentNullException(nameof(environment));
+        this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        this.environment = environment ?? throw new ArgumentNullException(nameof(environment));
     }
 
     public async ValueTask<bool> TryHandleAsync(
@@ -39,7 +50,7 @@ public sealed class ApiExceptionHandler : IExceptionHandler
 
         if (statusCode >= StatusCodes.Status500InternalServerError)
         {
-            _logger.LogError(
+            logger.LogError(
                 exception,
                 "Unhandled exception for {Method} {Path} -> {StatusCode}",
                 httpContext.Request.Method,
@@ -48,7 +59,7 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         }
         else
         {
-            _logger.LogWarning(
+            logger.LogWarning(
                 exception,
                 "Handled {ExceptionType} for {Method} {Path} -> {StatusCode}",
                 exception.GetType().Name,
@@ -58,7 +69,7 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         }
 
         // Client-safe message; diagnostic detail (stack trace) is attached only outside Production.
-        var error = new ErrorResult(statusCode, message, exception, _environment);
+        var error = new ErrorResult(statusCode, message, exception, environment.EnvironmentName);
         if (exception is ValidationFailedException validation)
         {
             error.Details = validation.Errors;

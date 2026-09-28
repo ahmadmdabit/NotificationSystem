@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[sp_AuthenticateUser]
+CREATE OR ALTER PROCEDURE [dbo].[SPAuthenticateUser]
     @Username NVARCHAR(50)
 AS
 BEGIN

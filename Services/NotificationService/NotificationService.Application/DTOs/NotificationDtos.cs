@@ -12,13 +12,3 @@ public sealed class NotificationDto
     public DateTime? SentAt { get; set; }
     public DateTime? CreatedAt { get; set; }
 }
-
-/// <summary>
-/// Notification history data transfer object.
-/// </summary>
-public sealed class NotificationHistoryDto
-{
-    public long NotificationId { get; set; }
-    public long UserId { get; set; }
-    public DateTime? CreatedAt { get; set; }
-}

@@ -50,9 +50,34 @@ services:
       - DISABLE_HTTPS_REDIRECT=true
       - AppSettings__SqlConnectionString=Server=sqlserver;Database=UserDB;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True
       - Messaging__UseRabbitMq=true
+      # Set MESSAGING_ENABLED=false to run with no bus at all (NullDomainEventDispatcher drops
+      # events). Requires a valid MassTransit licence when true - see .env.example.
+      - Messaging__Enabled=${MESSAGING_ENABLED:-true}
+      # MassTransit 9.x is commercially licensed and refuses to create a bus without a key.
+      # The key is read from a file mounted read-only below; it must never appear in an ENV,
+      # ARG, Dockerfile layer or appsettings. Host path is overridable via MASSTRANSIT_LICENSE_FILE.
+      - MT_LICENSE_PATH=/masstransit/license.txt
       - Messaging__RabbitMq__Host=rabbitmq
       - Messaging__RabbitMq__Username=${RABBITMQ_USER:?RABBITMQ_USER is required}
       - Messaging__RabbitMq__Password=${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+    volumes:
+      # MassTransit licence key, read-only. Source path is overridable; default is the
+      # documented per-user location. This file is NEVER committed.
+      #
+      # Long syntax with create_host_path: false (N-09). The short syntax silently CREATES A
+      # DIRECTORY at the source path when it is missing, so a licence-less host turned the
+      # documented "License must be specified" into an opaque mount failure. Compose now fails
+      # fast with a clear "source path does not exist" instead. Because the mount is
+      # unconditional, create the file before the first `up`:
+      #   mkdir -p ~/.dotnet/MassTransit && touch ~/.dotnet/MassTransit/license.txt
+      # This is irrelevant when MESSAGING_ENABLED=false - the bus is never registered and the
+      # file is never read - but the file must exist for `up` to succeed either way.
+      - type: bind
+        source: ${MASSTRANSIT_LICENSE_FILE:-${HOME}/.dotnet/MassTransit/license.txt}
+        target: /masstransit/license.txt
+        read_only: true
+        bind:
+          create_host_path: false
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
       interval: 10s
@@ -81,9 +106,34 @@ services:
       - DISABLE_HTTPS_REDIRECT=true
       - AppSettings__SqlConnectionString=Server=sqlserver;Database=NotificationDB;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True
       - Messaging__UseRabbitMq=true
+      # Set MESSAGING_ENABLED=false to run with no bus at all (NullDomainEventDispatcher drops
+      # events). Requires a valid MassTransit licence when true - see .env.example.
+      - Messaging__Enabled=${MESSAGING_ENABLED:-true}
+      # MassTransit 9.x is commercially licensed and refuses to create a bus without a key.
+      # The key is read from a file mounted read-only below; it must never appear in an ENV,
+      # ARG, Dockerfile layer or appsettings. Host path is overridable via MASSTRANSIT_LICENSE_FILE.
+      - MT_LICENSE_PATH=/masstransit/license.txt
       - Messaging__RabbitMq__Host=rabbitmq
       - Messaging__RabbitMq__Username=${RABBITMQ_USER:?RABBITMQ_USER is required}
       - Messaging__RabbitMq__Password=${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+    volumes:
+      # MassTransit licence key, read-only. Source path is overridable; default is the
+      # documented per-user location. This file is NEVER committed.
+      #
+      # Long syntax with create_host_path: false (N-09). The short syntax silently CREATES A
+      # DIRECTORY at the source path when it is missing, so a licence-less host turned the
+      # documented "License must be specified" into an opaque mount failure. Compose now fails
+      # fast with a clear "source path does not exist" instead. Because the mount is
+      # unconditional, create the file before the first `up`:
+      #   mkdir -p ~/.dotnet/MassTransit && touch ~/.dotnet/MassTransit/license.txt
+      # This is irrelevant when MESSAGING_ENABLED=false - the bus is never registered and the
+      # file is never read - but the file must exist for `up` to succeed either way.
+      - type: bind
+        source: ${MASSTRANSIT_LICENSE_FILE:-${HOME}/.dotnet/MassTransit/license.txt}
+        target: /masstransit/license.txt
+        read_only: true
+        bind:
+          create_host_path: false
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
       interval: 10s

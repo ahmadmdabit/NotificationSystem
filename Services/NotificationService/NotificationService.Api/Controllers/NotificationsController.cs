@@ -1,6 +1,8 @@
 using MediatR;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+
 using NotificationService.Application.Commands.CreateNotification;
 using NotificationService.Application.Commands.DeleteNotification;
 using NotificationService.Application.Commands.DeleteNotificationHistory;
@@ -11,6 +13,7 @@ using NotificationService.Application.Queries.GetAllNotifications;
 using NotificationService.Application.Queries.GetNotificationById;
 using NotificationService.Application.Queries.GetNotificationHistory;
 using NotificationService.Application.Queries.GetNotificationHistoryById;
+
 using Shared.Helpers;
 
 namespace NotificationService.Api.Controllers;
@@ -19,11 +22,11 @@ namespace NotificationService.Api.Controllers;
 [Route("api/[controller]")]
 public class NotificationsController : ControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly IMediator mediator;
 
     public NotificationsController(IMediator mediator)
     {
-        _mediator = mediator;
+        this.mediator = mediator;
     }
 
     [HttpGet]
@@ -31,7 +34,7 @@ public class NotificationsController : ControllerBase
     public async Task<ActionResult<ApiResult<IReadOnlyList<NotificationDto>>>> GetAllAsync(
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new GetAllNotificationsQuery(), cancellationToken).ConfigureAwait(false);
+        var result = await mediator.Send(new GetAllNotificationsQuery(), cancellationToken).ConfigureAwait(false);
         return Ok(new ApiResult<IReadOnlyList<NotificationDto>>(true, result));
     }
 
@@ -41,7 +44,7 @@ public class NotificationsController : ControllerBase
         long id,
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new GetNotificationByIdQuery(id), cancellationToken).ConfigureAwait(false);
+        var result = await mediator.Send(new GetNotificationByIdQuery(id), cancellationToken).ConfigureAwait(false);
         if (result is null)
             return NotFound(new ApiResult<NotificationDto>(false, default, 404, "Notification not found."));
 
@@ -54,7 +57,7 @@ public class NotificationsController : ControllerBase
         [FromBody] CreateNotificationCommand command,
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(command, cancellationToken).ConfigureAwait(false);
+        var result = await mediator.Send(command, cancellationToken).ConfigureAwait(false);
         return CreatedAtAction(nameof(GetByIdAsync), new { id = result.Id }, new ApiResult<NotificationDto>(true, result));
     }
 
@@ -69,7 +72,7 @@ public class NotificationsController : ControllerBase
 
         // Handler returns null for unknown ids; UpdateAsync asserts rows-affected for the
         // concurrent-delete race (NotFoundException → 404 via ApiExceptionHandler).
-        var result = await _mediator.Send(command, cancellationToken).ConfigureAwait(false);
+        var result = await mediator.Send(command, cancellationToken).ConfigureAwait(false);
         if (result is null)
             return NotFound(new ApiResult<NotificationDto>(false, default, 404, "Notification not found."));
 
@@ -82,7 +85,7 @@ public class NotificationsController : ControllerBase
         long id,
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new DeleteNotificationCommand(id), cancellationToken).ConfigureAwait(false);
+        var result = await mediator.Send(new DeleteNotificationCommand(id), cancellationToken).ConfigureAwait(false);
         if (!result)
             return NotFound(new ApiResult<bool>(false, default, 404, "Notification not found."));
 
@@ -95,12 +98,13 @@ public class NotificationsController : ControllerBase
         [FromBody] List<SendNotificationItem> items,
         CancellationToken cancellationToken)
     {
-        var command = new SendNotificationsCommand { Items = items };
-        var result = await _mediator.Send(command, cancellationToken).ConfigureAwait(false);
-        if (result)
-            return Ok(new ApiResult<bool>(true, true));
+        // The handler returns no value: it either completes, or throws a typed exception that
+        // ApiExceptionHandler maps to 404/400/500. There is no failure outcome to branch on here,
+        // so a dead else-BadRequest would only ever be unreachable (N-04).
+        await mediator.Send(new SendNotificationsCommand { Items = items }, cancellationToken)
+            .ConfigureAwait(false);
 
-        return BadRequest(new ApiResult<bool>(false, default, 0, "Send failed."));
+        return Ok(new ApiResult<bool>(true, true));
     }
 }
 
@@ -108,11 +112,11 @@ public class NotificationsController : ControllerBase
 [Route("api/[controller]")]
 public class NotificationHistoriesController : ControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly IMediator mediator;
 
     public NotificationHistoriesController(IMediator mediator)
     {
-        _mediator = mediator;
+        this.mediator = mediator;
     }
 
     [HttpGet]
@@ -120,7 +124,7 @@ public class NotificationHistoriesController : ControllerBase
     public async Task<ActionResult<ApiResult<IReadOnlyList<NotificationHistoryDto>>>> GetAllAsync(
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new GetNotificationHistoryQuery(), cancellationToken).ConfigureAwait(false);
+        var result = await mediator.Send(new GetNotificationHistoryQuery(), cancellationToken).ConfigureAwait(false);
         return Ok(new ApiResult<IReadOnlyList<NotificationHistoryDto>>(true, result));
     }
 
@@ -131,7 +135,7 @@ public class NotificationHistoriesController : ControllerBase
         long key2,
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new GetNotificationHistoryByIdQuery(key1, key2), cancellationToken).ConfigureAwait(false);
+        var result = await mediator.Send(new GetNotificationHistoryByIdQuery(key1, key2), cancellationToken).ConfigureAwait(false);
         if (result is null)
             return NotFound(new ApiResult<NotificationHistoryDto>(false, default, 404, "Notification history not found."));
 
@@ -145,7 +149,7 @@ public class NotificationHistoriesController : ControllerBase
         long key2,
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new DeleteNotificationHistoryCommand(key1, key2), cancellationToken).ConfigureAwait(false);
+        var result = await mediator.Send(new DeleteNotificationHistoryCommand(key1, key2), cancellationToken).ConfigureAwait(false);
         if (!result)
             return NotFound(new ApiResult<bool>(false, default, 404, "Notification history not found."));
 
