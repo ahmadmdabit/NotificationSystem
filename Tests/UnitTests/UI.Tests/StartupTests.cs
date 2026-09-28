@@ -27,7 +27,7 @@ public class StartupTests
         // Assert
         var gateway = services.SingleOrDefault(d => d.ServiceType == typeof(IGatewayApiClient));
         await Assert.That(gateway).IsNotNull();
-        // Singleton: one RestClient/token cache shared across the app (AGENTS.md)
+        // Singleton: one RestClient/token cache shared across the app (the BFF shares one token cache process-wide)
         await Assert.That(gateway!.Lifetime).IsEqualTo(ServiceLifetime.Singleton);
         await Assert.That(gateway.ImplementationType).IsEqualTo(typeof(GatewayApiClient));
 

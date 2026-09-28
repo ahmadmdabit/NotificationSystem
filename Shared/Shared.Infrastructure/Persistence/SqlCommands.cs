@@ -31,7 +31,7 @@ namespace Shared.Infrastructure.Persistence;
 /// column names) and the matching parameter object; this type builds every predicate. The
 /// identifiers are validated against <see cref="IdentifierPattern"/> because they are
 /// interpolated into SQL and therefore cannot be parameterised. This honours the
-/// AGENTS.md rule that projections be validated with a compiled regex — a rule that was
+/// house rule that projections be validated with a compiled regex — a rule that was
 /// documented but had no implementation until now.
 /// </para>
 /// </remarks>

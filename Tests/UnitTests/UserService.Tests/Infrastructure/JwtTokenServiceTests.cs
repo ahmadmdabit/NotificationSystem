@@ -32,7 +32,7 @@ namespace UserService.Tests.Infrastructure;
 public class JwtTokenServiceTests
 {
     /// <summary>
-    /// 64 characters — the shape AGENTS.md's <c>openssl rand -hex 64</c> produces. The service
+    /// 64 characters — the shape <c>openssl rand -hex 64</c> produces. The service
     /// takes the raw ASCII bytes (it does not hex-decode), so this yields the same 64-byte key the
     /// documented command does, exercising the production key shape.
     /// </summary>
