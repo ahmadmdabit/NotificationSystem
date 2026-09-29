@@ -30,6 +30,19 @@ jobs:
       - name: Run wiring tests
         run: dotnet test Tests/WiringTests/WiringTests.csproj -c Debug --no-build
 
+      # Integration tests need a REAL broker. They deliberately fail rather than skip when
+      # one is absent, so the broker must be up before this step - otherwise CI would fail on
+      # a missing dependency and a developer without Docker would see a red suite.
+      - name: Start test broker
+        run: docker compose -f docker-compose.test.yml up -d --wait rabbitmq
+
+      - name: Run integration tests
+        run: dotnet test Tests/IntegrationTests/IntegrationTests.csproj -c Debug --no-build
+
+      - name: Stop test broker
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
+
       - name: Validate compose files
         run: |
           docker compose config -q

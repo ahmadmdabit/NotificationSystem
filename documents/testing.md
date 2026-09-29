@@ -31,25 +31,63 @@ Both of these look like removable noise and are not.
   originally covered. Deleting NotificationService's `else` branch makes the `true` case fail and
   the `false` case pass — which is the whole diagnostic value of parameterising it.
 
-## Broker-backed coverage is a known gap
+## Broker-backed coverage
 
-**The generic-type-erasure defect fixed in `MassTransitDomainEventDispatcher` shipped behind a fully
-green suite.** Nothing in the current test projects can catch it being reintroduced:
+The generic-type-erasure defect fixed in `MassTransitDomainEventDispatcher` once shipped behind a fully
+green suite. `Tests/IntegrationTests` now closes that gap: it publishes through the production
+dispatcher to a **real RabbitMQ broker** and fails if the message does not reach a consumer bound to the
+concrete event type.
 
-- A **mocked** `IPublishEndpoint` cannot observe exchange naming. The dispatcher is handed a
-  stub that accepts anything, so it always "succeeds".
+No unit-level substitute is possible, and that is the point of the suite:
+
+- A **mocked** `IPublishEndpoint` cannot observe exchange naming. The stub accepts anything, so it
+  always "succeeds".
 - The **in-memory transport** never reaches exchange-naming logic at all, so it cannot
   distinguish "the consumer received it" from "the message went somewhere unbound".
 
-Covering this needs a **real broker** and a test that observes the published routing. That
-suite is in progress and is **not** yet part of the repository, so until it lands the cast in
-the dispatcher is protected only by review and by the comment explaining why it must not be
-removed. Treat any change to that `Publish((object)...)` call as requiring a live-broker
-check.
+### Running it
 
-> When such a suite is added it will deliberately **fail rather than skip** when the broker is
-> absent, because a guard that skips unnoticed is indistinguishable from no guard.
+```bash
+docker compose -f docker-compose.test.yml up -d --wait rabbitmq
+dotnet test Tests/IntegrationTests/IntegrationTests.csproj -c Debug
+```
 
+> The suite deliberately **fails rather than skips** when the broker is absent. A guard that skips
+> unnoticed is how the original defect shipped behind a green suite.
+>
+> **Credentials are read from the environment first, then the repository `.env`** - the same file
+> `docker compose` used to build the container, so the two cannot disagree. Plain `dotnet test` does not
+> load `.env` itself, and without this fallback the test process would silently fall back to `guest` while
+> the container ran with a real account. RabbitMQ refuses `guest` off-loopback, so that mismatch surfaces
+> as `Broker unreachable: guest@127.0.0.1:5673` - which reads like a transport fault but is an
+> `ACCESS_REFUSED`. **Read the inner exception before blaming the broker.** No manual exporting is needed.
+
+### What it asserts, and what it does not
+
+The test publishes through a `DomainEvent`-typed variable, because erasure only happens that way - writing
+`PublishAsync(new TestDomainEvent(...))` would let the compiler infer the concrete type and the test would
+pass against the broken dispatcher.
+
+Assertions are on **bound-queue topology**, never on `message_stats` counters: those are aggregated on an
+interval and lag publication by 200-500 ms, and MassTransit's inheritance binding makes the base exchange
+accumulate `publish_in` even when routing is correct. Counters cannot distinguish a real regression from
+either effect.
+
+Failure messages localise the stage via `IReceiveObserver` and `ISendObserver`. The send side is checked
+**first**: if nothing was ever handed to the transport, a "nothing arrived" verdict would be a conclusion
+about the wrong component.
+
+### Verified by mutation
+
+A green suite proves nothing on its own, so the guard was broken on purpose and confirmed red:
+
+| Mutation                                                    | Result |
+| ----------------------------------------------------------- | ------ |
+| `Publish(domainEvent, ...)` - the `(object)` cast removed    | **red** - `STAGE -1 (SEND) FAILED`, nothing reached the transport |
+| Cast restored (`git diff` clean)                            | green - 2/2 passed |
+
+The mutation is run against the **production** dispatcher, not a test double, so a passing test
+proves the dispatcher still routes on the runtime type.
 ## Verifying a test actually guards something
 
 A test that asserts on a string can pass for the wrong reason, so the three guards added for the

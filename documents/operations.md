@@ -21,4 +21,17 @@ Each image is tagged with `latest` and the commit SHA. Build caching uses GitHub
 
 ## Docker Compose Test Environment
 
-`docker-compose.test.yml` provides an isolated, fail-fast SQL Server instance for integration tests. It uses `restart: "no"` and no named volume to ensure a clean database state on every run, and declares its own Compose project name (`notificationsystem-test`) so a `down -v` scoped to it cannot remove the main stack's containers or SQL volume. App services are intentionally excluded — tests connect to this SQL Server directly.
+`docker-compose.test.yml` provides an isolated, fail-fast SQL Server **and a RabbitMQ broker** for integration tests. The broker is host-published on `5673`/`15673` (the main stack owns `5672`), because the tests run on the host rather than inside the Compose network. It uses `restart: "no"` and no named volume to ensure a clean state on every run, and declares its own Compose project name (`notificationsystem-test`) so a `down -v` scoped to it cannot remove the main stack's containers or volumes. App services are intentionally excluded - tests connect to these directly. `Tests/IntegrationTests` reads its broker credentials from this same `.env`, so a plain `dotnet test` needs no manual exporting.
+
+```bash
+docker compose -f docker-compose.test.yml up -d --wait rabbitmq   # broker for Tests/IntegrationTests
+docker compose -f docker-compose.test.yml down -v                        # full reset
+```
+
+> ⚠️ **An `ACCESS_REFUSED` is not an unreachable broker.** RabbitMQ refuses the default `guest`
+> account for any non-loopback connection, and the rejection surfaces as
+> `RabbitMqConnectionException: Broker unreachable:`, which reads like a transport fault.
+> `Tests/IntegrationTests` mitigates this by reading the repository `.env` when the variables are
+> absent from the environment - the same file Compose used - so the two cannot disagree. If you set
+> `RABBITMQ_USER`/`RABBITMQ_PASSWORD` yourself, the environment wins; otherwise the test falls back
+> to `.env` and then to `guest`.

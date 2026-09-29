@@ -185,6 +185,7 @@ class node_shared_domain,node_shared_app,node_shared_infra,node_common toneNeutr
 │       └── Services/                    # GatewayApiClient, IGatewayApiClient - BFF pattern
 └── Tests/
     ├── ArchitectureTests/             # ArchUnitNET dependency rule tests (TUnit adapter)
+    ├── IntegrationTests/              # Real-broker guard: domain-event routing via the production dispatcher (RabbitMQ, not self-contained)
     ├── WiringTests/                   # DI resolution + stored-procedure contract guards (TUnit; scans production source)
     └── UnitTests/
         ├── UserService.Tests/         # User command/query/handler/validator, domain, infrastructure, API controller tests

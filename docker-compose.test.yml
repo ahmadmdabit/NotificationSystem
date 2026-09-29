@@ -28,6 +28,11 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management
     container_name: test-rabbitmq
+    # Host-published because the integration tests run on the host, not in the compose
+    # network. 5672 is owned by the main stack, so the test broker uses 5673/15673.
+    ports:
+      - "5673:5672"
+      - "15673:15672"
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-guest}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-guest}

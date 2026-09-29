@@ -43,6 +43,26 @@ Start with [Architecture](documents/architecture.md) for the component diagram, 
 > to the concrete exchange rather than silently vanishing — see
 > [Messaging & Dispatch](documents/messaging.md#publish-on-the-runtime-type).
 
+
+## Tests
+
+```bash
+dotnet test NotificationSystem.slnx -c Debug     # everything except the broker-backed guard
+docker compose -f docker-compose.test.yml up -d --wait rabbitmq
+dotnet test Tests/IntegrationTests/IntegrationTests.csproj -c Debug
+```
+
+`Tests/IntegrationTests` publishes domain events through the production dispatcher to a real
+RabbitMQ broker, which is the only way to catch a routing regression: a mocked publish endpoint and
+the in-memory transport both fail to observe exchange naming. It fails rather than skips when the
+broker is absent, and it reads broker credentials from the environment or the repository `.env` -- the
+same file `docker compose` used, so the two cannot disagree. See
+[Development](documents/testing.md#broker-backed-coverage).
+
+> The solution-wide run still reports `error: 1` and exits non-zero even when every test passes:
+> `Tests/UnitTests/TestDoubles` is a class library with no tests, and `global.json`'s `test` node
+> supports only `runner`, so it cannot be excluded. **Gate on `failed: 0`.**
+
 ## License
 
 Licensed under the [MIT license](LICENSE.md).

@@ -73,12 +73,12 @@ PublishEndpointConverterCache.Publish(...)  -> Cached.Converters.Value[type].Pub
 PublishEndpointConverter<T>.Publish(...)   -> endpoint.Publish(message2, ct)   // generic, T = runtime
 ```
 
-**Do not "simplify" that cast away.** Removing it restores the silent discard, and no unit test
+**Do not "simplify" that cast away.** Removing it restores the silent discard, and no unit test or
 in-memory-transport test can catch it: a mocked `IPublishEndpoint` cannot observe exchange
 naming, and the in-memory transport never reaches naming logic. Only a real broker
-distinguishes "the consumer received it" from "the message went somewhere unbound". Until such a
-test exists, this cast is protected only by review and by the comment above -- see
-[Development](testing.md#broker-backed-coverage-is-a-known-gap).
+distinguishes "the consumer received it" from "the message went somewhere unbound". That suite now
+exists -- see [Development](testing.md#broker-backed-coverage). It is mutation-verified: removing this cast
+turns it red.
 
 
 ⚠️ `MessageTypeCache.GetMessageTypes()` also yields **base** types, so a `DomainEvent` publish

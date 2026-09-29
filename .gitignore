@@ -287,3 +287,8 @@ coverage.xml
 
 # IdentityServer developer signing credentials (auto-generated, contains private key material)
 **/tempkey.rsa
+
+.hermes/
+.maxential/
+tmp/
+.local/

@@ -13,3 +13,7 @@ LICENSE.md
 *.md
 !README.md
 .env
+.hermes/
+.maxential/
+tmp/
+.local/
