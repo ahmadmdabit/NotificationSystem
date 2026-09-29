@@ -120,7 +120,7 @@ node_notif_query -->|"reads"| node_notif_repo
 node_notif_repo -->|"uses"| node_notif_uow
 node_history_repo -->|"uses"| node_notif_uow
 node_notif_event -->|"publishes"| node_shared_infra
-node_shared_infra -->|"RabbitMQ (needs licence)"| node_rabbitmq
+    node_shared_infra -->|"RabbitMQ"| node_rabbitmq
 node_user_repo -->|"queries"| node_sql_server
 node_notif_repo -->|"queries"| node_sql_server
 node_history_repo -->|"inserts"| node_sql_server
@@ -156,7 +156,7 @@ class node_shared_domain,node_shared_app,node_shared_infra,node_common toneNeutr
 | **Frontend**           | ASP.NET Core MVC (Bootstrap, jQuery, Grid.js)                                                                                                                                             |
 | **API Documentation**  | Swagger/OpenAPI                                                                                                                                                                           |
 | **HTTP Client**        | RestSharp                                                                                                                                                                                 |
-| **Messaging**          | MassTransit 9.2.2 (in-memory / RabbitMQ), post-commit domain event dispatch — **commercially licensed; a key is required** (see [Messaging & Dispatch](messaging.md#messaging--dispatch)) |
+| **Messaging**          | MassTransit 8.5.10 (in-memory / RabbitMQ), post-commit domain event dispatch — permissively licensed, no key required (see [Messaging & Dispatch](messaging.md#publish-on-the-runtime-type)) |
 | **Validation**         | FluentValidation                                                                                                                                                                          |
 | **Architecture Tests** | ArchUnitNET (TUnit adapter)                                                                                                                                                               |
 
@@ -220,7 +220,7 @@ Clean Architecture + CQRS + DDD with the following layers per service:
 
 **Shared Kernel** (`Shared/`): `DomainEvent`, `IRequest` markers, `IDomainEventDispatcher`, `MassTransitDomainEventDispatcher`, `DomainEventCollector` (AsyncLocal, seeded by the transaction pipeline), `SqlCommands` (shared SQL shapes + identifier validation), `CommonBehavior` pipeline, `AppSettings` (`Shared.Helpers` namespace).
 
-**Messaging**: Domain events dispatched via `IDomainEventDispatcher` **after** the ambient transaction commits (post-commit dispatch — see [Messaging & Dispatch](messaging.md#messaging--dispatch)). In-memory transport for local dev, RabbitMQ for Docker/production. Toggle via `Messaging:UseRabbitMq` (`Messaging__UseRabbitMq` as env var); compose injects `Messaging__UseRabbitMq=true` + `Messaging__RabbitMq__Host=rabbitmq`.
+**Messaging**: Domain events dispatched via `IDomainEventDispatcher` **after** the ambient transaction commits (post-commit dispatch — see [Messaging & Dispatch](messaging.md#publish-on-the-runtime-type)). In-memory transport for local dev, RabbitMQ for Docker/production. Toggle via `Messaging:UseRabbitMq` (`Messaging__UseRabbitMq` as env var); compose injects `Messaging__UseRabbitMq=true` + `Messaging__RabbitMq__Host=rabbitmq`.
 
 **Stored Procedures**: Write operations use SPs (`SPRegisterUser`, `SPAuthenticateUser`, `SPInsertNotification`, `SPUpdateNotification`, `SPNotificationHistoryInsert`). Reads use Dapper `QueryAsync`. SP invocations stay in each service's own `*CommandFactory` because their parameter shapes differ per domain; only the projection and soft-delete shapes are shared.
 

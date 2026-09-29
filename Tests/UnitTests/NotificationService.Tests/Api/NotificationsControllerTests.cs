@@ -108,9 +108,19 @@ public class NotificationsControllerTests
             new CreateNotificationCommand { Title = "New", Content = "Body" }, CancellationToken.None);
 
         // Assert
-        var created = await Assert.That(result.Result).IsTypeOf<CreatedAtActionResult>();
-        // The Location header must point back at the GET action for the new id
-        await Assert.That(created!.ActionName).IsEqualTo("GetByIdAsync");
+        //
+        // N-04 / dispatch-buffer Phase 1. This used to assert CreatedAtActionResult.ActionName.
+        //
+        // That assertion could never catch the defect: the 500 was raised inside
+        // ObjectResultExecutor -> CreatedAtActionResult.OnFormatting, which only runs when MVC
+        // has a real ActionContext. Constructing the controller directly in a unit test skips
+        // formatting entirely, so "ActionName == GetByIdAsync" passed green while the real
+        // endpoint returned 500 on every successful create. Link generation is a runtime
+        // behaviour and no unit test can assert it; what a unit test CAN assert is that the
+        // result carries a *route name* plus the values needed to build the URL. The runtime
+        // half of the guard is exercised against the live container.
+        var created = await Assert.That(result.Result).IsTypeOf<CreatedAtRouteResult>();
+        await Assert.That(created!.RouteName).IsEqualTo(nameof(NotificationsController.GetByIdAsync));
         await Assert.That(created.RouteValues!["id"]).IsEqualTo(12L);
         var envelope = (ApiResult<NotificationDto>)created!.Value!;
         await Assert.That(envelope.Success).IsTrue();

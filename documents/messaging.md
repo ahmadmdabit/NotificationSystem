@@ -2,15 +2,20 @@
 
 [Back to README](../README.md)
 
-> ⚠️ **MassTransit 9.2.2 is commercially licensed and will not start without a key.** This is
-> pre-existing, not introduced by any recent change, and it is the single most common reason
-> `docker compose up` cannot reach `healthy`. Read this section before debugging anything else.
+> **MassTransit is pinned to 8.5.10, which is permissively licensed and needs no key.** An earlier
+> revision pinned 9.2.2, which is commercially licensed and refused to create a bus without one; that
+> gate applied to every transport including in-memory, and was the single most common reason
+> `docker compose up` could not reach `healthy`. Both services were downgraded to 8.5.10 and the
+> licence apparatus was removed. This section is retained as history, because the failure mode is
+> worth recognising if the pin is ever raised.
 
-### Licence requirement
+### Licence requirement — historical (MassTransit 9.x only)
 
-Both `.Infrastructure.csproj` files pin `MassTransit` / `MassTransit.RabbitMQ` **9.2.2**. The licence
-gate runs **when the bus is created, before the transport is chosen**, so it applies to the in-memory
-transport too:
+> Applies to **9.x only**. Not to the current 8.5.10 pin.
+
+Both `.Infrastructure.csproj` files pinned `MassTransit` / `MassTransit.RabbitMQ` at **9.2.2**. The
+licence gate runs **when the bus is created, before the transport is chosen**, so it applied to the
+in-memory transport too:
 
 ```
 Unhandled exception. MassTransit.ConfigurationException: The bus configuration is invalid:
@@ -18,41 +23,68 @@ Unhandled exception. MassTransit.ConfigurationException: The bus configuration i
    setting the MT_LICENSE/MT_LICENSE_PATH environment variables.
 ```
 
-There is **no development, CI, test or evaluation exemption** — not one environment is exempt.
-Switching to `Messaging__UseRabbitMq=false` does **not** avoid it.
+There was **no development, CI, test or evaluation exemption** — not one environment was exempt.
+Setting `Messaging__UseRabbitMq=false` did **not** avoid it.
 
-**Supported mechanism (recommended) — a mounted key file.** Nothing secret enters the repo:
+The key was read from a file bind-mounted read-only at `~/.dotnet/MassTransit/license.txt`, with the
+path overridable via `MASSTRANSIT_LICENSE_FILE`. It was never placed in a `Dockerfile`, `ARG`,
+`ENV`, `appsettings`, or any committed file.
 
-```yaml
-# docker-compose.yml — already present for both services
-environment:
-  - MT_LICENSE_PATH=/masstransit/license.txt
-volumes:
-  - type: bind
-    source: ${MASSTRANSIT_LICENSE_FILE:-${HOME}/.dotnet/MassTransit/license.txt}
-    target: /masstransit/license.txt
-    read_only: true
-    bind:
-      create_host_path: false
+Two details worth keeping, because both produced confusing symptoms:
+
+- The bind mount was **unconditional**, so the file had to exist before the first
+  `docker compose up` even with messaging disabled:
+  ```bash
+  mkdir -p ~/.dotnet/MassTransit && touch ~/.dotnet/MassTransit/license.txt
+  ```
+  `create_host_path: false` turned a missing source path into a clear error, which is why the short
+  bind syntax was rejected — it silently creates a *directory* there, and that then broke the mount
+  with an opaque failure instead of the documented "License must be specified".
+- A missing key and a *malformed* key fail differently, and the difference is how you confirm the
+  path is being read: `License must be specified` means the path was **not** resolved;
+  `The license could not be loaded: The input is not a valid Base-64 string…` means the path **was**
+  read and the contents are invalid. Verified against a running container 2026-09-28.
+
+**Current state:** 8.5.10 requires none of this. `MT_LICENSE_PATH`, the bind mount, and
+`MASSTRANSIT_LICENSE_FILE` are all removed from `docker-compose.yml`, and there is no prerequisite
+file to create before the first `up`.
+
+### Publish on the runtime type
+
+`MassTransitDomainEventDispatcher.PublishAsync<T>` casts to `object` before publishing. This is
+
+load-bearing, not a style choice.
+
+MassTransit derives the publish exchange from the **static** generic argument of `Publish<T>`,
+not from `message.GetType()`. `TransactionBehavior` drains a `List<DomainEvent>`, so `T` infers
+as the abstract base type and every event is published to `Shared.Domain:DomainEvent` -- an
+exchange with no bound queue. RabbitMQ accepts the message and discards it: no exception,
+HTTP 200, empty queue, silent consumer. Writes still commit.
+
+Casting to `object` selects the non-generic `IPublishEndpoint.Publish(object, CancellationToken)`
+overload, which resolves `message.GetType()` and re-enters the generic publish with `T` = the
+concrete event type, landing on the exchange the consumer actually binds to.
+
+Verified against a live broker on 8.5.10, and by reading the implementation:
+
+```
+PublishEndpoint.Publish(object)              -> Type type = message.GetType();
+PublishEndpointConverterCache.Publish(...)  -> Cached.Converters.Value[type].Publish(...)
+PublishEndpointConverter<T>.Publish(...)   -> endpoint.Publish(message2, ct)   // generic, T = runtime
 ```
 
-Put the key at `~/.dotnet/MassTransit/license.txt`, or point `MASSTRANSIT_LICENSE_FILE` elsewhere.
-Validation is local and offline — no activation server. **Never** put the key in a `Dockerfile`,
-`ARG`, `ENV`, `appsettings`, or a committed file.
+**Do not "simplify" that cast away.** Removing it restores the silent discard, and no unit test
+in-memory-transport test can catch it: a mocked `IPublishEndpoint` cannot observe exchange
+naming, and the in-memory transport never reaches naming logic. Only a real broker
+distinguishes "the consumer received it" from "the message went somewhere unbound". Until such a
+test exists, this cast is protected only by review and by the comment above -- see
+[Development](testing.md#broker-backed-coverage-is-a-known-gap).
 
-> **Create that file before your first `docker compose up`, even with messaging off.** The bind mount
-> is unconditional, and `create_host_path: false` turns a missing source path into a clear error
-> instead of letting Docker silently create a _directory_ there — which it did, and which then broke
-> the mount with an opaque failure rather than the documented "License must be specified":
->
-> ```bash
-> mkdir -p ~/.dotnet/MassTransit && touch ~/.dotnet/MassTransit/license.txt
-> ```
->
-> A missing key and a _malformed_ key fail differently, and the difference is how you confirm the
-> path is being read: `License must be specified` means the path was **not** resolved;
-> `The license could not be loaded: The input is not a valid Base-64 string…` means the path **was**
-> read and the contents are invalid. Verified against a running container 2026-09-28.
+
+⚠️ `MessageTypeCache.GetMessageTypes()` also yields **base** types, so a `DomainEvent` publish
+exchange is declared and bound to the concrete one. That means the base exchange legitimately
+accumulates `publish_in` even when routing is correct -- so `publish_in` is not a usable
+regression signal. Assert on the concrete exchange and on bound-queue topology instead.
 
 ### Messaging on/off
 
@@ -68,12 +100,12 @@ whole bus registration:
 
 | Value                        | Behaviour                                                                                                                                                                                               |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `true` (default)             | Bus is registered. **Requires a licence key.**                                                                                                                                                          |
+| `true` (default)             | Bus is registered. No licence key required (8.5.10).                                                                                                                                                    |
 | absent, `""`, or unparseable | Treated as `true` — an absent key never silently disables the broker.                                                                                                                                   |
-| `false`                      | **No MassTransit registration at all.** `NullDomainEventDispatcher` is registered instead. Services start, `/health` answers, domain events are **dropped** and logged at Debug. No broker, no licence. |
+| `false`                      | **No MassTransit registration at all.** `NullDomainEventDispatcher` is registered instead. Services start, `/health` answers, domain events are **dropped** and logged at Debug. Not a deployment mode — the events are lost. |
 
 ```bash
-# start the stack without a licence (local dev / CI)
+# run with no bus at all (local dev only)
 MESSAGING_ENABLED=false docker compose up -d
 ```
 
@@ -90,7 +122,7 @@ so a stopped bus is visible in `/health` instead of silently healthy.
 
 Selected by `Messaging:UseRabbitMq` (`Messaging__UseRabbitMq` as env var / `.env` key):
 
-- **Local dev** (default): in-memory transport — no broker required (but a licence _is_, unless
+- **Local dev** (default): in-memory transport — no broker and no licence required.
   `Messaging:Enabled=false`).
 - **Docker/production**: RabbitMQ transport, injected by `docker-compose.yml` via `Messaging__UseRabbitMq=true` + `Messaging__RabbitMq__Host=rabbitmq` + `Messaging__RabbitMq__Username`/`Password` for both services.
 

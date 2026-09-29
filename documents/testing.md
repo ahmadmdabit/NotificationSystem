@@ -4,7 +4,7 @@
 
 ## Testing
 
-Unit tests target the Application, Domain, Infrastructure, and Api layers, using **TUnit 1.69.0** (no NUnit, FluentAssertions, Moq, or NSubstitute in test code). Four test assemblies plus a shared TestDoubles project, and two contract suites:
+Unit tests target the Application, Domain, Infrastructure, and Api layers, using **TUnit 1.69.0** (no NUnit, FluentAssertions, Moq, or NSubstitute in test code). Four test assemblies plus a shared TestDoubles project and two contract suites:
 
 - **`UserService.Tests`** — commands, queries, validators, domain aggregates, infrastructure (repositories, PasswordHasher, JwtTokenService, consumer)
 - **`NotificationService.Tests`** — commands, queries, validators, domain aggregates, infrastructure (repositories, TVP streaming), controllers
@@ -30,6 +30,25 @@ Both of these look like removable noise and are not.
   files contain the same `if/else` around `IDomainEventDispatcher` and only one of them was
   originally covered. Deleting NotificationService's `else` branch makes the `true` case fail and
   the `false` case pass — which is the whole diagnostic value of parameterising it.
+
+## Broker-backed coverage is a known gap
+
+**The generic-type-erasure defect fixed in `MassTransitDomainEventDispatcher` shipped behind a fully
+green suite.** Nothing in the current test projects can catch it being reintroduced:
+
+- A **mocked** `IPublishEndpoint` cannot observe exchange naming. The dispatcher is handed a
+  stub that accepts anything, so it always "succeeds".
+- The **in-memory transport** never reaches exchange-naming logic at all, so it cannot
+  distinguish "the consumer received it" from "the message went somewhere unbound".
+
+Covering this needs a **real broker** and a test that observes the published routing. That
+suite is in progress and is **not** yet part of the repository, so until it lands the cast in
+the dispatcher is protected only by review and by the comment explaining why it must not be
+removed. Treat any change to that `Publish((object)...)` call as requiring a live-broker
+check.
+
+> When such a suite is added it will deliberately **fail rather than skip** when the broker is
+> absent, because a guard that skips unnoticed is indistinguishable from no guard.
 
 ## Verifying a test actually guards something
 

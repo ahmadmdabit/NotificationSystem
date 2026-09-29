@@ -38,7 +38,13 @@ public class NotificationsController : ControllerBase
         return Ok(new ApiResult<IReadOnlyList<NotificationDto>>(true, result));
     }
 
-    [HttpGet("{id:long}")]
+    // Explicit route name: SuppressAsyncSuffixInActionNames defaults to true (ASP.NET Core
+    // 3.0+), so the action selector is "GetById", not "GetByIdAsync". CreatedAtAction resolves
+    // by action name and therefore could not find it, failing result *formatting* with
+    // "No route matches the supplied values" and turning a successful create into a 500.
+    // Naming the route and using CreatedAtRoute makes the reference explicit and stable
+    // regardless of the suffix convention (N-04, dispatch-buffer Phase 1).
+    [HttpGet("{id:long}", Name = nameof(GetByIdAsync))]
     [Authorize]
     public async Task<ActionResult<ApiResult<NotificationDto>>> GetByIdAsync(
         long id,
@@ -58,7 +64,7 @@ public class NotificationsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await mediator.Send(command, cancellationToken).ConfigureAwait(false);
-        return CreatedAtAction(nameof(GetByIdAsync), new { id = result.Id }, new ApiResult<NotificationDto>(true, result));
+        return CreatedAtRoute(nameof(GetByIdAsync), new { id = result.Id }, new ApiResult<NotificationDto>(true, result));
     }
 
     [HttpPut("{id:long}")]

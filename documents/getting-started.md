@@ -107,13 +107,14 @@ Create `Services/UserService/UserService.Api/appsettings.Development.json`:
    > be non-`guest`: RabbitMQ's `guest` account is loopback-only and is refused over the compose
    > bridge network.
 
-2. **MassTransit licence (required).** `MassTransit` 9.2.2 is commercially licensed and throws at bus
-   creation without a key — see [Messaging & Dispatch](messaging.md#messaging--dispatch). Put the key file at
-   `~/.dotnet/MassTransit/license.txt` (override the host path with `MASSTRANSIT_LICENSE_FILE`) —
-   **create the file first**, because compose bind-mounts that path unconditionally.
-   Compose mounts it read-only and sets `MT_LICENSE_PATH`. Alternatively set
-   `MESSAGING_ENABLED=false` to start the stack with messaging off (events are dropped, not queued);
-   note that this is the **compose** variable — a `Messaging__Enabled` line in `.env` is ignored.
+2. **No MassTransit licence needed.** `MassTransit` is pinned at 8.5.10, which is permissively
+   licensed and creates a bus with no key. An earlier revision pinned the commercially
+   licensed 9.2.2 and required a key file on disk — that apparatus has been removed, so there is
+   no file to create before the first `up`. See
+   [Messaging & Dispatch](messaging.md#licence-requirement--historical-masstransit-9x-only).
+   To start with messaging off instead, set `MESSAGING_ENABLED=false` — note that is the
+   **compose** variable, and a `Messaging__Enabled` line in `.env` is ignored. Events are dropped,
+   not queued, so it is a local-dev convenience rather than a deployment mode.
 
 3. Start the full stack:
 

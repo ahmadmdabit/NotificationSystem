@@ -37,11 +37,11 @@ Running without Docker, or building only, is covered in
 Start with [Architecture](documents/architecture.md) for the component diagram, and
 [Getting Started](documents/getting-started.md) to run it.
 
-> ⚠️ **Two things to know before you run anything.** MassTransit is commercially
-> licensed and the stack will not start without a key — see
-> [Messaging & Dispatch](documents/messaging.md#licence-requirement). And a repeat
-> `Notifications/Send` is now idempotent rather than a 500 — see
-> [Stored Procedures](documents/database.md#stored-procedures).
+> ⚠️ **Two things to know before you run anything.** `Notifications/Send` is idempotent
+> rather than a 500 — see [Stored Procedures](documents/database.md#stored-procedures). And
+> domain events are published on the *runtime* type, so a `DomainEvent`-typed variable routes
+> to the concrete exchange rather than silently vanishing — see
+> [Messaging & Dispatch](documents/messaging.md#publish-on-the-runtime-type).
 
 ## License
 
