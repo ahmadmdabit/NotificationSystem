@@ -227,13 +227,13 @@ Clean Architecture + CQRS + DDD with the following layers per service:
 
 **Architecture Tests**: ArchUnitNET (via the `TngTech.ArchUnitNET.TUnit` adapter) enforces dependency direction rules. Run: `dotnet test Tests/ArchitectureTests/ArchitectureTests.csproj -c Debug`.
 
-**Unit Tests**: Full suite (UserService, NotificationService, Shared, UI, Wiring, Architecture — 386 cases) runs in Release:
+**Unit Tests**: The full suite (UserService, NotificationService, Shared, UI, Wiring, Architecture) plus the broker-backed integration guard requires a running RabbitMQ — see [Testing](testing.md#broker-backed-coverage). Run:
 
 ```bash
 dotnet test NotificationSystem.slnx -c Release
 ```
 
-Per-project counts, verified 2026-09-28: `Shared.Tests` 96 · `UserService.Tests` 101 · `NotificationService.Tests` 113 · `UI.Tests` 38 · `WiringTests` 18 · `ArchitectureTests` 15 = **386**. Note the solution total includes `ArchitectureTests`, which **is** discovered and passes under `-c Release` (only Debug is a _meaningful_ run, since ArchUnitNET analyses IL). Re-measure before quoting a number.
+Per-project counts, measured 2026-09-29 from the TUnit reports: `Shared.Tests` 96 · `UserService.Tests` 101 · `NotificationService.Tests` 115 · `UI.Tests` 38 · `WiringTests` 25 · `ArchitectureTests` 15 · `IntegrationTests` 2 = **392**, `failed: 0`. The solution total includes `ArchitectureTests`, which **is** discovered and passes under `-c Release` (only Debug is a _meaningful_ run, since ArchUnitNET analyses IL). The run reports `error: 1` and exits `8` even when all pass, because `TestDoubles` is a class library with no tests and `global.json`'s `test` node cannot exclude it - **gate on `failed: 0`**. Re-measure before quoting a number.
 
 Coverage is collected per test project with the MTP `--coverage` flag — see [Testing](testing.md#testing).
 

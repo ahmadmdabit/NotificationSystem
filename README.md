@@ -33,6 +33,7 @@ Running without Docker, or building only, is covered in
 | [Development](documents/testing.md)             | Architecture details for contributors, test projects, regression guards, TUnit pitfalls, adding a feature                |
 | [Conventions](documents/conventions.md)         | Engineering rules and why each exists: layering, persistence, error contract, testing, pitfalls                          |
 | [Operations](documents/operations.md)           | Frontend dependencies, CI/CD workflow, compose test environment                                                          |
+| [Learning Notes](documents/learning/README.md)   | Twenty topic notes: honest verification, publish routing, broker guards, idempotency, flaky tests                       |
 
 Start with [Architecture](documents/architecture.md) for the component diagram, and
 [Getting Started](documents/getting-started.md) to run it.
@@ -43,13 +44,11 @@ Start with [Architecture](documents/architecture.md) for the component diagram, 
 > to the concrete exchange rather than silently vanishing — see
 > [Messaging & Dispatch](documents/messaging.md#publish-on-the-runtime-type).
 
-
 ## Tests
 
 ```bash
-dotnet test NotificationSystem.slnx -c Debug     # everything except the broker-backed guard
-docker compose -f docker-compose.test.yml up -d --wait rabbitmq
-dotnet test Tests/IntegrationTests/IntegrationTests.csproj -c Debug
+docker compose -f docker-compose.test.yml up -d --wait rabbitmq   # the guard needs a real broker
+dotnet test NotificationSystem.slnx -c Debug                     # 392 tests, including the guard
 ```
 
 `Tests/IntegrationTests` publishes domain events through the production dispatcher to a real
@@ -59,7 +58,7 @@ broker is absent, and it reads broker credentials from the environment or the re
 same file `docker compose` used, so the two cannot disagree. See
 [Development](documents/testing.md#broker-backed-coverage).
 
-> The solution-wide run still reports `error: 1` and exits non-zero even when every test passes:
+> The run still reports `error: 1` and exits non-zero even when every test passes:
 > `Tests/UnitTests/TestDoubles` is a class library with no tests, and `global.json`'s `test` node
 > supports only `runner`, so it cannot be excluded. **Gate on `failed: 0`.**
 
