@@ -51,5 +51,9 @@ services:
       test: rabbitmq-diagnostics -q ping
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      # RabbitMQ needs roughly 30s to finish its Erlang boot and report "Server startup
+      # complete". Without a start_period, interval x retries is the entire grace budget and a
+      # healthy-but-still-starting broker is reported unhealthy. sqlserver has one too.
+      start_period: 60s
     restart: "no"

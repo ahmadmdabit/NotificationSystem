@@ -2,6 +2,74 @@
 
 [Back to README](../README.md)
 
+## Runtime topology
+
+The stack runs inside WSL2, not on the Windows host directly. That single fact explains most
+"cannot reach it from Windows" reports, and it is where the two independent idle timers bite.
+
+```mermaid
+flowchart TB
+  win["Windows host<br/>Docker engine inside WSL2"]
+
+  subgraph wsl["WSL2 VM, NAT networking"]
+    subgraph compose["Compose project notificationsystem"]
+      ui["ui<br/>published 8080"]
+      gateway["apigateway<br/>published 8081"]
+      usersvc["userservice<br/>internal 8080"]
+      notifsvc["notificationservice<br/>internal 8080"]
+      sql[("sqlserver<br/>published 1433<br/>UserDB and NotificationDB")]
+      rabbit[("rabbitmq<br/>published 5672 and 15672")]
+    end
+  end
+
+  win -->|"localhost forwarding"| ui
+  win -->|"localhost forwarding"| gateway
+  win -->|"localhost forwarding"| sql
+  win -->|"localhost forwarding"| rabbit
+  ui -->|"service-account token"| gateway
+  gateway -->|"api/Users"| usersvc
+  gateway -->|"api/Notifications"| notifsvc
+  usersvc -->|"UserDB"| sql
+  notifsvc -->|"NotificationDB"| sql
+  usersvc -.->|"in-memory or RabbitMQ"| rabbit
+  notifsvc -.->|"in-memory or RabbitMQ"| rabbit
+
+  classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+  classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+  classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
+  classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+  class win,ui,gateway toneBlue
+  class sql,rabbit toneAmber
+  class usersvc toneMint
+  class notifsvc toneRose
+```
+
+Two timers terminate this VM if nothing holds it open, and a short-lived
+`wsl -d ubuntu -- docker ps` between commands is exactly what triggers them:
+
+| Setting | Section | Default | Effect |
+| --- | --- | --- | --- |
+| `vmIdleTimeout` | `[wsl2]` | `60000` | VM shuts down after the last WSL process exits |
+| `instanceIdleTimeout` | `[general]` | `15000` | The distro shuts down on the same idea |
+
+For a development machine that keeps the broker alive between commands, set both in
+`C:\Users\<you>\.wslconfig`:
+
+```ini
+[wsl2]
+vmIdleTimeout=86400000
+[general]
+instanceIdleTimeout=-1
+```
+
+`localhostForwarding` is what makes the published ports reachable from Windows. It is **ignored**
+under `networkingMode=mirrored`, so NAT is the correct mode for this stack.
+
+> ⚠️ **A `healthy` container is not a serving service.** `docker ps` shows only running containers
+> and `docker port` prints a mapping whether or not anything is bound. Confirm with
+> `ss -ltn | grep <port>` before blaming the network. See
+> [Green Instruments and Dead Services](learning/green-instruments-and-dead-services.md).
+
 ## Frontend Dependencies
 
 - **RestSharp** (`114.0.0`): UI calls the API gateway via `GatewayApiClient` (`ApiSettings:GatewayBaseUrl`; Docker: `http://apigateway:8080`; local dev: `https://localhost:44315` in `UI/appsettings.json`). ⚠️ `44315` does **not** match `ApiGateway`'s launch profile, which binds `https://localhost:5001` — see the port table in [Running the Application](getting-started.md#running-the-application). Compose is unaffected.

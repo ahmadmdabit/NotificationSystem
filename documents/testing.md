@@ -14,6 +14,60 @@ Unit tests target the Application, Domain, Infrastructure, and Api layers, using
 - **`WiringTests`** — DI resolution (including a mirror of each `Program.cs` API registration) **and** stored-procedure contract guards that scan production source text; the reason a pure refactor can break a test
 - **`ArchitectureTests`** — ArchUnitNET dependency rules via the `TngTech.ArchUnitNET.TUnit` adapter. ArchUnitNET analyses IL, so a **Debug** build is required for it to see real instructions; the suite is currently also discovered and green under `-c Release`, but only Debug is a meaningful run.
 
+## Test projects and what each one actually guards
+
+The suite is layered deliberately: fast, isolated tests at the bottom, then guards that can only be
+proved against real infrastructure at the top. Each project answers a different question, and a
+green bottom does not imply a green top.
+
+```mermaid
+flowchart TB
+  subgraph fast["Fast, no infrastructure"]
+    shared["Shared.Tests<br/>ApiResult, redaction allowlist<br/>exception handler, pipeline, UnitOfWork"]
+    usersvc["UserService.Tests<br/>User aggregate, commands, validators<br/>repository commands, JWT, PBKDF2"]
+    notifsvc["NotificationService.Tests<br/>Notification aggregate, handlers<br/>TVP streaming, controllers"]
+    ui["UI.Tests<br/>controllers, GatewayApiClient token lifecycle, Startup DI"]
+    doubles["TestDoubles<br/>mocks, stubs, helpers<br/>no tests of its own"]
+  end
+
+  subgraph guards["Guards that need the shape of the system"]
+    wiring["WiringTests<br/>DI resolution incl. a mirror of Program.cs<br/>stored-procedure contract guards"]
+    arch["ArchitectureTests<br/>layer dependency rules<br/>Debug config only"]
+  end
+
+  subgraph external["Needs a real broker"]
+    integ["IntegrationTests<br/>publish routing and topology<br/>against a live broker"]
+  end
+
+  doubles -.->|"shared by"| shared
+  doubles -.->|"shared by"| usersvc
+  doubles -.->|"shared by"| notifsvc
+  doubles -.->|"shared by"| ui
+  fast ==>|"layers feed"| guards
+  guards ==>|"layers feed"| external
+
+  classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+  classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
+  classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+  classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
+  classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
+  class shared,usersvc,notifsvc,ui toneMint
+  class wiring,arch toneTeal
+  class integ toneRose
+  class doubles toneNeutral
+```
+
+Three properties worth keeping in mind while reading a red run:
+
+- **`TestDoubles` is a class library, not a suite.** It contributes no tests, which is why the
+  solution-wide command always exits non-zero. Gate on `failed: 0`, never on the exit code.
+- **`IntegrationTests` fails rather than skips when the broker is absent.** That is deliberate — a
+  guard that skips unnoticed is indistinguishable from no guard — but it means a red run there is
+  often an environment question rather than a code one.
+- **A green layer does not imply a green layer above it.** `WiringTests` exists because pure unit
+  tests could not see a DI registration that only breaks at runtime, and `ArchitectureTests`
+  exists because nothing else asserts the dependency direction.
+
 ## Two guards worth knowing about
 
 Both of these look like removable noise and are not.

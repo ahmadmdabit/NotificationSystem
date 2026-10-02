@@ -15,6 +15,65 @@ The documentation provides:
 - Request/response schemas
 - Interactive testing interface
 
+## Request lifecycle
+
+How a single call travels, and where a failure is converted into a response.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant UI as MVC UI
+    participant Client as GatewayApiClient
+    participant Gateway as Ocelot gateway
+    participant Ctrl as Controller
+    participant Pipe as MediatR pipeline
+    participant Handler as Command or query handler
+    participant Repo as Repository
+    participant Db as SQL Server
+    participant Err as ApiExceptionHandler
+
+    UI->>Client: page request
+    Client->>Gateway: HTTP with bearer token
+    Gateway->>Ctrl: forwarded route
+    Ctrl->>Pipe: Send request
+    Pipe->>Pipe: ValidationBehavior
+    Pipe->>Pipe: LoggingBehavior
+    Pipe->>Pipe: TransactionBehavior opens a unit of work
+    Pipe->>Handler: invoke handler
+    Handler->>Repo: read or write through the command factory
+    Repo->>Db: command definition or stored procedure
+    Db-->>Repo: rows or a success flag
+    Repo-->>Handler: entity or DTO
+    Handler-->>Pipe: result
+    Pipe->>Pipe: commit, then drain domain events
+    Pipe-->>Ctrl: result
+    Ctrl-->>Gateway: ApiResult envelope
+    Gateway-->>Client: response
+    Client-->>UI: model or ErrorViewModel
+
+    alt command fails validation
+        Pipe-->>Err: ValidationFailedException
+    else domain rule rejects the request
+        Pipe-->>Err: NotFound or DuplicateEntity exception
+    else unexpected fault
+        Pipe-->>Err: any other exception
+    end
+
+    Err->>Err: map status code and message
+    Err->>Err: attach diagnostics only for allowlisted environments
+    Err-->>Client: ApiResult with ErrorResult
+```
+
+Three things worth reading off this diagram:
+
+- **Validation runs before the transaction opens.** `ValidationBehavior` is registered first, so a
+  rejected request never takes a database lock.
+- **The controller never touches a repository.** It mediates only; that boundary is what makes the
+  Application layer testable without a database.
+- **Failures converge on one place.** `ApiExceptionHandler` is the single producer of the error
+  envelope, and it is DI-constructed — see
+  [Testing](testing.md#the-di-guard-and-why-it-eagerly-resolves) for why that is worth a test.
+
 ## API Surface
 
 All endpoints are async-only. There is **no** `BaseApiController`: both service controllers derive from `ControllerBase` and rely on the `AuthorizationOptions.FallbackPolicy = RequireAuthenticatedUser()` set in each `Program.cs`, which is why every action is authenticated without carrying `[Authorize]`. `Register` and `Authenticate` carry `[AllowAnonymous]`; destructive actions carry `[Authorize(Policy = "Service")]`. `/health` is anonymous because it is not a controller action. The following endpoints are exposed beyond standard CRUD:

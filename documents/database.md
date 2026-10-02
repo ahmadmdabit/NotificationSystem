@@ -11,6 +11,66 @@
 - **Write operations**: Stored procedures (`SPRegisterUser`, `SPAuthenticateUser`, `SPInsertNotification`, `SPUpdateNotification`, `SPNotificationHistoryInsert`). Read operations use Dapper `QueryAsync`.
 - **SQL contract**: repositories only _execute_; the `CommandDefinition`s are built in `Persistence/UserCommandFactory.cs` and `Persistence/NotificationCommandFactory.cs`, with the shapes common to both services in `Shared.Infrastructure/Persistence/SqlCommands.cs`. Dapper's query methods are static extensions on `IDbConnection`, so the commands — not the connection — are the testable unit. See [Testing](testing.md#testing).
 
+## Schema at a glance
+
+Two databases, created at startup by an idempotent hosted service. Soft deletes are universal, so
+every read carries an `IsDeleted = 0` predicate and no table is ever physically removed.
+
+```mermaid
+erDiagram
+    USERS {
+        BIGINT Id PK "identity"
+        NVARCHAR Username UK "unique index"
+        NVARCHAR Token "nullable"
+        VARBINARY PasswordHash "nullable, raw"
+        VARBINARY PasswordSalt "nullable, raw"
+        DATETIME2 CreatedAt "nullable"
+        DATETIME2 UpdatedAt "nullable"
+        BIT IsDeleted "soft delete"
+    }
+
+    NOTIFICATIONS {
+        BIGINT Id PK "identity"
+        NVARCHAR Title "max 512"
+        NVARCHAR Content "nullable"
+        INT Status "enum as int, default 0"
+        DATETIME2 SentAt "nullable"
+        DATETIME2 CreatedAt "nullable"
+        DATETIME2 UpdatedAt "nullable"
+        BIT IsDeleted "soft delete"
+    }
+
+    NOTIFICATIONHISTORIES {
+        BIGINT NotificationId PK "composite"
+        BIGINT UserId PK "composite"
+        DATETIME2 CreatedAt "nullable"
+        DATETIME2 UpdatedAt "nullable"
+        BIT IsDeleted "soft delete"
+    }
+
+    TYPE_NOTIFICATIONHISTORY {
+        BIGINT NotificationId "table valued type"
+        BIGINT UserId "table valued type"
+    }
+
+    NOTIFICATIONS ||--o{ NOTIFICATIONHISTORIES : "delivered to"
+    USERS ||--o{ NOTIFICATIONHISTORIES : "receives"
+    TYPE_NOTIFICATIONHISTORY }o--|| NOTIFICATIONHISTORIES : "bulk insert shape"
+```
+
+Four decisions that the diagram does not show but that shape everything else:
+
+- **Two databases, not one.** `UserDB` belongs to `UserService`, `NotificationDB` to
+  `NotificationService`. There is no cross-database query and no shared connection; the service
+  boundary is also a data boundary.
+- **No foreign keys.** `NotificationHistories` references `UserId` into a *different* database, so
+  SQL Server cannot enforce it. That is a deliberate trade, and it is why the composite primary key
+  plus the `WHERE NOT EXISTS` guard in `SPNotificationHistoryInsert` carry the integrity instead.
+- **Uniqueness is enforced by an index, not by a check.** `UXUsersUsername` closes the
+  check-then-act race that a `SELECT` before `INSERT` would leave open.
+- **`PasswordHash` and `PasswordSalt` are raw columns.** They are never mapped onto a domain entity
+  that leaves the repository, which is why the row DTO is a private nested type.
+
 ## Resetting the Databases
 
 `DatabaseMigrationBase` only creates what does not exist yet (`IF NOT EXISTS` for databases, tables and types; `CREATE OR ALTER` for procedures), so a reset means dropping the databases and letting the services recreate them on the next start. **Always rebuild the images when resetting Docker** — the migration code ships inside the image, so booting a stale image against a wiped volume re-creates the stale schema.

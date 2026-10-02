@@ -34,17 +34,18 @@ The application consists of multiple components:
 flowchart TD
 
 subgraph group_clients["Client Experience"]
-  node_ui_web["MVC Web UI<br/>[HomeController.cs]"]
-  node_ui_api["UI API Facade<br/>[ApiController.cs]"]
-  node_gateway_client["Gateway Client"]
+  node_ui_web["MVC Web UI<br/>HomeController"]
+  node_ui_api["UI API Facade<br/>ApiController"]
+  node_gateway_client["GatewayApiClient<br/>caches a service-account token"]
 end
 
 subgraph group_edge["Gateway Edge"]
-  node_gateway["API Gateway<br/>[Program.cs]"]
+  node_gateway["Ocelot API Gateway<br/>routes by prefix"]
 end
 
 subgraph group_user_api["UserService.Api"]
   node_user_api["UsersController"]
+  node_user_handler["ApiExceptionHandler<br/>produces ApiResult"]
 end
 
 subgraph group_user_app["UserService.Application"]
@@ -53,77 +54,89 @@ subgraph group_user_app["UserService.Application"]
 end
 
 subgraph group_user_infra["UserService.Infrastructure"]
-  node_user_repo["UserRepository<br/>Dapper + SP"]
+  node_user_repo["UserRepository<br/>Dapper, private UserRow"]
   node_user_uow["UnitOfWork"]
   node_user_jwt["JwtTokenService"]
   node_user_pwd["PasswordHasher"]
+  node_user_consumer["UserRegisteredEventConsumer"]
 end
 
 subgraph group_user_domain["UserService.Domain"]
-  node_user_entity["User Entity<br/>Password VO"]
+  node_user_entity["User aggregate<br/>Password value object"]
   node_user_event["UserRegisteredEvent"]
 end
 
 subgraph group_notif_api["NotificationService.Api"]
   node_notif_api["NotificationsController"]
-  node_history_api["NotificationsHistoryController"]
+  node_history_api["NotificationHistoryController"]
+  node_notif_handler["ApiExceptionHandler<br/>produces ApiResult"]
 end
 
 subgraph group_notif_app["NotificationService.Application"]
   node_notif_cmd["SendNotificationsCommand"]
-  node_notif_query["GetNotificationByIdQuery<br/>GetNotificationHistoryQuery"]
+  node_notif_query["GetNotificationByIdQuery<br/>GetAllNotificationsQuery"]
 end
 
 subgraph group_notif_infra["NotificationService.Infrastructure"]
-  node_notif_repo["NotificationRepository<br/>Dapper + SP, private NotificationRow"]
-  node_history_repo["NotificationHistoryRepository<br/>TVP + SP"]
+  node_notif_repo["NotificationRepository<br/>Dapper, private NotificationRow"]
+  node_history_repo["NotificationHistoryRepository<br/>TVP + stored procedure"]
   node_notif_uow["UnitOfWork"]
 end
 
 subgraph group_notif_domain["NotificationService.Domain"]
-  node_notif_entity["Notification Entity<br/>NotificationStatus VO"]
+  node_notif_entity["Notification aggregate<br/>NotificationStatus value object"]
   node_notif_event["NotificationSentEvent"]
 end
 
 subgraph group_shared["Shared Kernel"]
-  node_shared_domain["Shared.Domain<br/>DomainEvent, IRequest"]
-  node_shared_app["Shared.Application<br/>IRequest, IDomainEventDispatcher"]
-  node_shared_infra["Shared.Infrastructure<br/>MassTransit + Null dispatchers<br/>SqlCommands, UnitOfWork"]
-  node_common["Common<br/>ApiResult, ErrorResult, AppSettings"]
+  node_shared_domain["Shared.Domain<br/>DomainEvent, DomainEventCollector"]
+  node_shared_app["Shared.Application<br/>IRequest, pipeline behaviors"]
+  node_shared_infra["Shared.Infrastructure<br/>MassTransitDomainEventDispatcher<br/>NullDomainEventDispatcher<br/>SqlCommands"]
+  node_common["Shared.Api<br/>ApiResult, ErrorResult"]
 end
 
-node_user_actor(("User"))
-node_sql_server[("SQL Server<br/>LocalDB / 2022 container")]
-node_rabbitmq[("RabbitMQ<br/>optional")]
+node_user_actor(("End user"))
+node_userdb[("UserDB<br/>Users")]
+node_notifdb[("NotificationDB<br/>Notifications<br/>NotificationHistories")]
+node_rabbitmq[("RabbitMQ<br/>needs a licence key")]
 
-node_user_actor -->|"uses UI"| node_ui_web
-node_ui_web -->|"submits requests"| node_ui_api
-node_ui_api -->|"calls client"| node_gateway_client
-node_gateway_client -->|"sends HTTP"| node_gateway
-node_gateway -->|"routes /Users"| node_user_api
-node_gateway -->|"routes /Notifications"| node_notif_api
-node_gateway -->|"routes /NotificationHistories"| node_history_api
+node_user_actor -->|"browses"| node_ui_web
+node_ui_web -->|"submits"| node_ui_api
+node_ui_api -->|"calls"| node_gateway_client
+node_gateway_client -->|"HTTP with bearer token"| node_gateway
+node_gateway -->|"api/Users"| node_user_api
+node_gateway -->|"api/Notifications"| node_notif_api
+node_gateway -->|"api/NotificationHistory"| node_history_api
+
 node_user_api -->|"mediates"| node_user_cmd
 node_user_api -->|"mediates"| node_user_query
-node_user_cmd -->|"persists"| node_user_repo
-node_user_query -->|"reads"| node_user_repo
+node_user_cmd -->|"persists via"| node_user_repo
+node_user_cmd -->|"signs with"| node_user_jwt
+node_user_cmd -->|"hashes with"| node_user_pwd
+node_user_query -->|"reads via"| node_user_repo
 node_user_repo -->|"uses"| node_user_uow
-node_user_jwt -->|"generates"| node_user_entity
-node_user_pwd -->|"hashes"| node_user_entity
-node_user_event -->|"dispatches"| node_shared_infra
+node_user_repo -->|"queries"| node_userdb
+node_user_cmd -->|"raises"| node_user_event
+node_user_event -->|"consumed by"| node_user_consumer
+
 node_notif_api -->|"mediates"| node_notif_cmd
 node_notif_api -->|"mediates"| node_notif_query
 node_history_api -->|"mediates"| node_notif_query
-node_notif_cmd -->|"persists"| node_notif_repo
-node_notif_cmd -->|"streams TVP"| node_history_repo
-node_notif_query -->|"reads"| node_notif_repo
+node_notif_cmd -->|"persists via"| node_notif_repo
+node_notif_cmd -->|"streams TVP to"| node_history_repo
+node_notif_query -->|"reads via"| node_notif_repo
 node_notif_repo -->|"uses"| node_notif_uow
 node_history_repo -->|"uses"| node_notif_uow
-node_notif_event -->|"publishes"| node_shared_infra
-    node_shared_infra -->|"RabbitMQ"| node_rabbitmq
-node_user_repo -->|"queries"| node_sql_server
-node_notif_repo -->|"queries"| node_sql_server
-node_history_repo -->|"inserts"| node_sql_server
+node_notif_repo -->|"queries"| node_notifdb
+node_history_repo -->|"inserts into"| node_notifdb
+node_notif_cmd -->|"raises"| node_notif_event
+
+node_user_handler -.->|"shapes the response of"| node_common
+node_notif_handler -.->|"shapes the response of"| node_common
+node_user_cmd -->|"pipeline from"| node_shared_app
+node_notif_cmd -->|"pipeline from"| node_shared_app
+node_shared_infra -->|"publishes after commit"| node_rabbitmq
+node_shared_app -->|"selects dispatcher"| node_shared_infra
 
 classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
 classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
@@ -133,15 +146,18 @@ classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
 classDef toneIndigo fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
 classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
 class node_ui_web,node_ui_api,node_gateway_client,node_user_actor toneBlue
-class node_gateway,node_sql_server,node_rabbitmq toneAmber
-class node_user_api,node_user_cmd,node_user_query toneMint
-class node_user_infra,node_user_repo,node_user_uow,node_user_jwt,node_user_pwd toneTeal
-class node_user_domain,node_user_entity,node_user_event toneIndigo
-class node_notif_api,node_history_api,node_notif_cmd,node_notif_query toneRose
-class node_notif_infra,node_notif_repo,node_history_repo,node_notif_uow toneTeal
-class node_notif_domain,node_notif_entity,node_notif_event toneIndigo
-class node_shared_domain,node_shared_app,node_shared_infra,node_common toneNeutral
+class node_gateway,node_userdb,node_notifdb,node_rabbitmq toneAmber
+class node_user_api,node_user_handler,node_user_cmd,node_user_query toneMint
+class node_notif_api,node_notif_handler,node_notif_cmd,node_notif_query toneRose
+class group_user_infra,node_user_repo,node_user_uow,node_user_jwt,node_user_pwd,node_user_consumer toneTeal
+class group_notif_infra,node_notif_repo,node_history_repo,node_notif_uow toneTeal
+class group_user_domain,node_user_entity,node_user_event toneIndigo
+class group_notif_domain,node_notif_entity,node_notif_event toneIndigo
+class group_shared,node_shared_domain,node_shared_app,node_shared_infra,node_common toneNeutral
 ```
+
+Dependency direction is inward and is enforced, not merely documented — see
+[Conventions](conventions.md) for the rules and how `ArchitectureTests` proves them.
 
 ## Tech Stack
 

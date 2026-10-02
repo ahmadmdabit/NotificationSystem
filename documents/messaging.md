@@ -2,6 +2,64 @@
 
 [Back to README](../README.md)
 
+## Dispatch: after commit, on the runtime type
+
+Every write command goes through one pipeline behaviour that opens a transaction, invokes the
+handler, commits, and *only then* publishes. The ordering is the guarantee.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Ctrl as Controller
+    participant Pipe as MediatR pipeline
+    participant Tx as TransactionBehavior
+    participant Collector as DomainEventCollector
+    participant Handler as Command handler
+    participant Repo as Repository
+    participant Db as SQL Server
+    participant Dispatch as IDomainEventDispatcher
+    participant Bus as MassTransit bus
+
+    Ctrl->>Pipe: Send a write command
+    Pipe->>Tx: enter
+    Tx->>Collector: Seed the AsyncLocal list
+    Tx->>Handler: invoke
+    Handler->>Handler: mutate the aggregate
+    Handler->>Collector: Add the domain event
+    Handler->>Repo: persist
+    Repo->>Db: write inside the unit of work
+    Db-->>Repo: affected rows
+    Repo-->>Handler: saved entity
+    Handler-->>Tx: result
+
+    Tx->>Db: commit
+    Tx->>Collector: Drain the collected events
+
+    loop for each drained event
+        Tx->>Dispatch: PublishAsync
+        Dispatch->>Bus: publish using the runtime type
+        Bus-->>Dispatch: acknowledged
+    end
+
+    Dispatch-->>Tx: done
+    Tx-->>Pipe: result
+    Pipe-->>Ctrl: ApiResult
+```
+
+Three failure modes this shape exists to prevent:
+
+- **Ghost events on rollback.** A publish before commit would announce a write that never happened.
+  The `Drain` is unreachable unless the commit returned.
+- **Silently dropped events.** `AsyncLocal` flows *into* an awaited callee but a mutation made
+  inside it does not flow back out, so the handler's `Add` would land on a list the pipeline cannot
+  see. `Seed()` in the pipeline's own execution context is what prevents that, and
+  `TransactionBehaviorTests` is the regression guard.
+- **Publish under the wrong exchange.** The broker derives the exchange from the *static* generic
+  argument, so `PublishAsync<T>` over a `List<DomainEvent>` would send everything to the base-type
+  exchange that has no bound queue. Casting to `object` selects the runtime type.
+
+## Licence history
+
 > **MassTransit is pinned to 8.5.10, which is permissively licensed and needs no key.** An earlier
 > revision pinned 9.2.2, which is commercially licensed and refused to create a bus without one; that
 > gate applied to every transport including in-memory, and was the single most common reason
@@ -153,10 +211,13 @@ Selected by `Messaging:UseRabbitMq` (`Messaging__UseRabbitMq` as env var / `.env
 
 Registered as the `"messaging"` health check in both services' `Program.cs`.
 
-**End-to-end verification status** (2026-09-28, against a live container):
+**Verification status at the current 8.5.10 pin**
 
-| Scenario                                      | Result                                                                                                                                                            |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MESSAGING_ENABLED=false`, both services up   | **Pass** — both `healthy` in ~10 s, `/health` → `Healthy`, zero `MassTransit.ConfigurationException`                                                              |
-| `MESSAGING_ENABLED=true` + malformed key file | **Pass** — fails with the Base-64 parse error, `License must be specified` count 0, proving `MT_LICENSE_PATH` is read                                             |
-| `MESSAGING_ENABLED=true` + **valid** key      | **Not verified** — no licence key is available in this environment. Drop a key at `~/.dotnet/MassTransit/license.txt` and run `docker compose up -d` to close it. |
+| Scenario | Status |
+| --- | --- |
+| `MESSAGING_ENABLED=false`, both services up, `/health` answers | Verified live (2026-09-28): both services `healthy` in ~10 s, `IDomainEventDispatcher` resolves to `NullDomainEventDispatcher`, events dropped rather than published |
+| `MESSAGING_ENABLED=true` against a live RabbitMQ | **Not yet re-verified under 8.5.10.** The 9.2.2-era run proved only that `MT_LICENSE_PATH` was honoured, by watching the error change from `License must be specified` to a Base-64 parse error. Both rows are meaningless at 8.5.10, which needs no key |
+| Health check reports messaging as disabled rather than probing a broker that is not there | Implemented; not exercised by an automated test |
+
+If you raise the MassTransit pin above 8.5.10, the whole licence apparatus above becomes
+mandatory again — and the first symptom is a container that will not start, not a failing test.

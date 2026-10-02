@@ -13,6 +13,68 @@ cost tends to get "simplified" away the first time it is inconvenient.
 
 ## Architecture
 
+Every request that reaches a MediatR handler passes through three behaviours, in registration
+order. The order is the design: the innermost opens the transaction, so nothing earlier has already
+committed work that a later validation failure would need to undo.
+
+```mermaid
+flowchart LR
+  ctrl["Controller"] --> send["Send a request"]
+  send --> val["ValidationBehavior<br/>FluentValidation rules"]
+  val --> log["LoggingBehavior<br/>start and completion entries"]
+  log --> tx["TransactionBehavior<br/>seed, open a unit of work"]
+  tx --> handler["Command or query handler"]
+  handler --> repo["Repository"]
+  repo --> db[("SQL Server")]
+
+  tx -.->|"commit, then drain"| dispatch["IDomainEventDispatcher<br/>publish after commit"]
+  dispatch --> bus[("Broker or null dispatcher")]
+
+  classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+  classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
+  classDef toneIndigo fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
+  classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+  class ctrl,send,handler,repo toneMint
+  class val,log,tx,dispatch toneTeal
+  class db,bus toneAmber
+```
+
+`TransactionBehavior` applies only to types marked as commands. Queries run through validation and
+logging but never open a transaction, so a read cannot be blamed for holding locks.
+
+### Dependency direction
+
+Layers depend inward, and `ArchitectureTests` fails the build when that stops being true. This is
+enforced rather than documented on trust:
+
+```mermaid
+flowchart RL
+  api["Api<br/>controllers, middleware"]
+  infra["Infrastructure<br/>repositories, unit of work, messaging"]
+  app["Application<br/>commands, queries, DTOs, validators"]
+  domain["Domain<br/>entities, value objects, events"]
+
+  api --> infra
+  infra --> app
+  app --> domain
+  domain -.->|"depends on nothing above"| none["nothing"]
+
+  classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+  classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
+  classDef toneIndigo fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
+  classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
+  class api toneMint
+  class infra toneTeal
+  class app toneIndigo
+  class domain,none toneRose
+```
+
+The rule that keeps tripping people up: `Shared.Infrastructure` cannot name `UserCommandFactory` or
+`NotificationCommandFactory`, because referencing a service project would invert the dependency. Its
+own documentation therefore says `<c>UserCommandFactory</c>` in plain text rather than using a
+`see cref` that could never resolve — and because documentation generation is off repo-wide, that
+mistake would have stayed silent.
+
 ### Layering
 
 Clean Architecture with CQRS and DDD. Dependency direction is

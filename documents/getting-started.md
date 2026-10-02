@@ -2,6 +2,47 @@
 
 [Back to README](../README.md)
 
+## What happens on start-up
+
+Schema creation is not a manual step and not a migration tool. It is a hosted service that runs
+before the app serves traffic, and it is idempotent, so a restart against a drifted database repairs
+it rather than failing.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Host as ASP.NET Core host
+    participant DI as Service registrations
+    participant Mig as DatabaseMigration
+    participant Master as SQL Server master
+    participant Db as UserDB or NotificationDB
+
+    Host->>DI: build the container
+    DI->>DI: application, infrastructure, controllers, exception handler, health checks
+    Host->>Mig: start the hosted service
+    Mig->>Master: reconnect using the Initial Catalog
+    alt database absent
+        Mig->>Master: create the database
+    else database present
+        Mig->>Master: continue and repair drift
+    end
+    Mig->>Db: create tables if missing
+    Mig->>Db: create the table valued type if missing
+    Mig->>Db: create or alter each stored procedure
+    Mig->>Db: add any missing columns
+    Mig-->>Host: completed
+    Host->>Host: begin listening
+    Host-->>Host: health endpoint reports ready
+```
+
+Two details that save real debugging time:
+
+- **The connection string must name a catalog.** `DatabaseMigrationBase` reconnects to `master`
+  first; an empty catalog produces `CREATE DATABASE []` and nothing more useful.
+- **`create_host_path: false` in compose is deliberate.** Docker will not silently create a host
+  directory for a bind mount, so a missing secrets file fails loudly instead of producing an empty
+  file that then fails later, further away.
+
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)

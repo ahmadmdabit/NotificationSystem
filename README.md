@@ -23,6 +23,42 @@ Running without Docker, or building only, is covered in
 
 ## Documentation
 
+```mermaid
+flowchart LR
+  user(("End user"))
+
+  subgraph edge["Docker Compose"]
+    ui["MVC UI<br/>port 8080"]
+    gateway["Ocelot gateway<br/>port 8081"]
+    usersvc["UserService<br/>internal 8080"]
+    notifsvc["NotificationService<br/>internal 8080"]
+    sqlserver[("SQL Server<br/>UserDB and NotificationDB")]
+    rabbitmq[("RabbitMQ<br/>optional, needs a licence")]
+  end
+
+  user -->|"HTTP"| ui
+  ui -->|"service-account token"| gateway
+  gateway -->|"api/Users"| usersvc
+  gateway -->|"api/Notifications"| notifsvc
+  usersvc -->|"UserDB"| sqlserver
+  notifsvc -->|"NotificationDB"| sqlserver
+  usersvc -.->|"UserRegisteredEvent"| rabbitmq
+  notifsvc -.->|"NotificationSentEvent"| rabbitmq
+
+  classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+  classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+  classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+  classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
+  class user,ui,gateway toneBlue
+  class sqlserver,rabbitmq toneAmber
+  class usersvc toneMint
+  class notifsvc toneRose
+```
+
+The UI never prompts for a human to log in: it registers a service account, caches a bearer token,
+and refreshes it on a 401. Only the two microservices touch the database, and only they talk to the
+broker. The full layered view is in [Architecture](documents/architecture.md).
+
 | Document                                        | What it covers                                                                                                           |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | [Architecture](documents/architecture.md)       | Overview, feature list, component diagram, tech stack, project layout, domain entities, layering, cross-cutting concerns |
