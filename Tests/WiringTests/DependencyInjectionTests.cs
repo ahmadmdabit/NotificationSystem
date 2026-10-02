@@ -1,4 +1,5 @@
 using System.Globalization;
+
 using MediatR;
 
 using Microsoft.Extensions.Configuration;

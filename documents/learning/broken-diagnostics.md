@@ -120,6 +120,14 @@ notes, the `NotificationRepository` pitfall. But `AGENTS.md` was untracked.
 This is a *documentation* defect that reads as a *wiring* one: nothing fails, nothing is inconsistent,
 and the knowledge simply is not there for the person who needs it.
 
+## Related: the mirror image — instruments reporting presence
+
+Every case above is an instrument reporting **absence** that was really a fact about the query. The
+inverse is equally misleading and is documented in
+[Green Instruments and Dead Services](green-instruments-and-dead-services.md): a container reported
+`(healthy)`, `docker port` printed a mapping, and nothing was listening. Same corrective reflex —
+name what the instrument measures before writing the sentence you intend to conclude from it.
+
 ## Related: an ignore file that does not match the working tree
 
 `.gitignore` was split between the index and the worktree — staged content ended at `tempkey.rsa`,

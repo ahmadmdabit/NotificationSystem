@@ -1,6 +1,7 @@
-using MassTransit;
 using System.Net.Sockets;
 using System.Text.Json;
+
+using MassTransit;
 
 using TUnit.Assertions;
 

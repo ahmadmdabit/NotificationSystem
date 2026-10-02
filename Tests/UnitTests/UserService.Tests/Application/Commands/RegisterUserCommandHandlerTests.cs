@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Logging.Abstractions;
-
 using Shared.Domain;
 using Shared.Domain.Exceptions;
 

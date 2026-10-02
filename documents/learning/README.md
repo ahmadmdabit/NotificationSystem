@@ -16,6 +16,7 @@ next person does not repeat them. For how the system *works*, see the documents 
 | [Testing seams](testing-seams.md) | Extracting what cannot be mocked; Dapper and source-scanning contract tests |
 | [Vacuous and self-referential tests](vacuous-and-self-referential-tests.md) | The three shapes of a test that passes vacuously, and the mutation that proves it bites |
 | [Broken diagnostics](broken-diagnostics.md) | Five instruments that reported absence when the query was wrong, and the reflex to question the instrument first |
+| [Green instruments and dead services](green-instruments-and-dead-services.md) | `docker ps` healthy, `docker port` mapped, nothing serving; host-state vs component-state; and why a soak is the only close for an intermittent fault |
 | [Defects that escape a green suite](defects-that-escape-green-suites.md) | Wiring breaks, lazy DI, unverified mocks, and the review method that found them |
 | [Security gates that fail open](security-gates-that-fail-open.md) | Redaction defaults, validation drift, and DTO fields that become API contract |
 | [Verifying and remediating](verifying-and-remediating.md) | Executing a written plan: sweeps, earned limitations, stale tooling, and flags that fail loudly |

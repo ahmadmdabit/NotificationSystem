@@ -36,6 +36,17 @@ services:
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-guest}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-guest}
+      # jose_server must be disabled or this container intermittently fails to boot.
+      # The image ships OpenSSL 3.1.8 with only the `default` provider active (no `legacy`),
+      # and JOSE's elliptic-curve key check needs `legacy`. When it fails, RabbitMQ's
+      # supervision tree tears down the whole application:
+      #   exception exit: {{shutdown,{failed_to_start_child,jose_server,terminating}},
+      #                    {jose_app,start,[normal,[]]}}
+      # Combined with restart: "no" below, a single crash leaves the broker permanently down
+      # and nothing listening on the published port. Nothing in this repo's tests exercises
+      # OAuth2 token validation, so JOSE is not needed here.
+      # Do not "clean this up" - re-adding the plugin means fixing the OpenSSL provider gap.
+      - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=-rabbitmq_jose disable
     healthcheck:
       test: rabbitmq-diagnostics -q ping
       interval: 10s

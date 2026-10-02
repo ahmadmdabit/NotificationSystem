@@ -27,8 +27,8 @@ namespace IntegrationTests;
 /// </remarks>
 public sealed class TestDomainEventRecorder
 {
-    private readonly List<TestDomainEvent?> _received = [];
-    private readonly Lock _gate = new();
+    private readonly List<TestDomainEvent?> received = [];
+    private readonly Lock gate = new();
 
     /// <summary>
     /// Waits for a consumed <see cref="TestDomainEvent"/> whose <c>Data</c> equals
@@ -40,9 +40,9 @@ public sealed class TestDomainEventRecorder
 
         while (DateTime.UtcNow < deadline)
         {
-            lock (_gate)
+            lock (gate)
             {
-                var match = _received.FirstOrDefault(e => e?.Data == expectedData);
+                var match = received.FirstOrDefault(e => e?.Data == expectedData);
                 if (match is not null)
                 {
                     return match;
@@ -53,11 +53,11 @@ public sealed class TestDomainEventRecorder
         }
 
         string seen;
-        lock (_gate)
+        lock (gate)
         {
-            seen = _received.Count == 0
+            seen = received.Count == 0
                 ? "nothing was consumed"
-                : $"consumed: {string.Join(", ", _received.Select(e => e is null ? "<null body>" : $"'{e.Data}'"))}";
+                : $"consumed: {string.Join(", ", received.Select(e => e is null ? "<null body>" : $"'{e.Data}'"))}";
         }
 
         var state = await TestBroker.DescribeQueueStateAsync(
@@ -86,9 +86,9 @@ public sealed class TestDomainEventRecorder
     // would hide the one observation that separates "never delivered" from "delivered unresolvable".
     internal void Record(TestDomainEvent? message)
     {
-        lock (_gate)
+        lock (gate)
         {
-            _received.Add(message);
+            received.Add(message);
         }
     }
 }

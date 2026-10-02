@@ -54,7 +54,107 @@ dotnet test Tests/IntegrationTests/IntegrationTests.csproj -c Debug
 
 > The suite deliberately **fails rather than skips** when the broker is absent. A guard that skips
 > unnoticed is how the original defect shipped behind a green suite.
->
+
+#### When the TCP probe fails but the container is healthy
+
+A refusal here has four causes, and the first is both the cheapest and the one most often skipped.
+Check in this order.
+
+**0. Is anything actually listening?** `docker ps` shows only *running* containers and `docker port`
+prints a mapping whether or not `docker-proxy` bound anything, so both will confirm a
+healthy-looking service that is not serving:
+
+```bash
+docker ps -a --filter name=test-rabbitmq     # Up, or Exited? (docker ps hides Exited)
+ss -ltn | grep ':5673'                       # expect a 0.0.0.0:5673 listener
+docker logs test-rabbitmq | grep -iE 'jose|crash'
+```
+
+If the mapping is printed but `ss` is empty, the fault is Docker's publishing (step 3). If the
+container is `Exited`, read the logs before touching any network configuration.
+
+**1. Is the host still running?** WSL terminates the VM after `vmIdleTimeout` (default 60 s) and the
+distro after `instanceIdleTimeout` (default 15 s). Short-lived `wsl -d <distro> -- ...` commands will
+repeatedly kill the container between invocations, and `restart: "no"` means it never returns:
+
+```bash
+uptime -s            # run across an idle gap: an advancing boot time is the answer
+```
+
+Fix in `C:\Users\<user>\.wslconfig`:
+
+```ini
+[wsl2]
+vmIdleTimeout=86400000
+[general]
+instanceIdleTimeout=-1
+```
+
+**2. Did the broker crash?** `rabbitmq:3.13-management` can fail to boot, and the failure is
+abbreviated rather than reported as unhealthy:
+
+```
+exception exit: {{shutdown,{failed_to_start_child,jose_server,terminating}},{jose_app,start,[normal,[]]}}
+```
+
+The image ships OpenSSL 3.1.8 with only the `default` provider and no `legacy`, which JOSE's
+elliptic-curve key check needs. `docker-compose.test.yml` therefore sets
+`RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=-rabbitmq_jose disable`; nothing in this repository exercises
+OAuth2 token validation, so the plugin is not needed. Verify with:
+
+```bash
+docker logs test-rabbitmq 2>&1 | grep -ic 'jose_server'   # expect 0
+docker inspect test-rabbitmq --format '{{.State.ExitCode}} {{.RestartCount}}'
+```
+
+**3. Never start `dockerd` by hand in a systemd-enabled distro.** A bare `nohup dockerd &` makes
+systemd start a second instance that fights it for the socket, yielding a `(healthy)` container with
+**nothing bound**:
+
+```bash
+systemctl is-active docker     # active
+pgrep -c dockerd               # expect 1  - two instances is the fault
+```
+
+Recovery: `wsl --shutdown`, let systemd own it, wait for `active` with a single `dockerd`, then
+recreate the container - `up` alone will not re-bind a stale one.
+
+**4. Only then suspect the network.** Confirm NAT is actually applied (mirrored mode cannot forward
+container ports, and `localhostForwarding` is *ignored* there):
+
+```bash
+hostname -I | tr ' ' '\n' | grep -E '^[0-9]+\.' | head -1   # NAT => 172.x, mirrored => LAN IP
+```
+
+The Hyper-V firewall (`Get-NetFirewallHyperVVMSetting -PolicyStore ActiveStore`) defaults
+`DefaultInboundAction: Block` under NAT. Scoped allow rules for TCP 5673/15673 are permitted but were
+**not sufficient** on the host this was reproduced on - do not record the issue as closed on the
+strength of a rule existing:
+
+```powershell
+New-NetFirewallHyperVRule -Name 'WSL-NotificationSystem-RabbitMQ-AMQP' `
+  -DisplayName 'WSL inbound: RabbitMQ 5673 (NotificationSystem IntegrationTests)' `
+  -Enabled True -Direction Inbound -VMCreatorId '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' `
+  -Protocol TCP -LocalPorts 5673 -Action Allow
+```
+
+Undo with:
+
+```powershell
+Get-NetFirewallHyperVRule | Where-Object Name -Like 'WSL-NotificationSystem*' | Remove-NetFirewallHyperVRule
+```
+
+> ⚠️ **For an intermittent fault, one green run is not a fix.** Verify with a soak across at least
+> the window in which it previously failed, and confirm `RestartCount=0`. The full account of this
+> investigation - including three times a green observation was mistaken for a fix - is in
+> [Green Instruments and Dead Services](learning/green-instruments-and-dead-services.md).
+
+**When the host cannot be repaired,** run these tests inside the distro, where `127.0.0.1:5673`
+reaches the broker directly: install the SDK with `dotnet-install.sh` and run
+`dotnet test Tests/IntegrationTests/IntegrationTests.csproj`. Everything else in the suite runs on
+Windows and is unaffected.
+
+
 > **Credentials are read from the environment first, then the repository `.env`** - the same file
 > `docker compose` used to build the container, so the two cannot disagree. Plain `dotnet test` does not
 > load `.env` itself, and without this fallback the test process would silently fall back to `guest` while
