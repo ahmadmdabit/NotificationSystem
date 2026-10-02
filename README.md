@@ -70,6 +70,7 @@ broker. The full layered view is in [Architecture](documents/architecture.md).
 | [Conventions](documents/conventions.md)         | Engineering rules and why each exists: layering, persistence, error contract, testing, pitfalls                          |
 | [Operations](documents/operations.md)           | Frontend dependencies, CI/CD workflow, compose test environment                                                          |
 | [Learning Notes](documents/learning/README.md)   | Twenty topic notes: honest verification, publish routing, broker guards, idempotency, flaky tests                       |
+| [Achievements](documents/achievements.md)       | Resume-ready accomplishments derived from the git history, with quantified outcomes and measurement notes              |
 
 Start with [Architecture](documents/architecture.md) for the component diagram, and
 [Getting Started](documents/getting-started.md) to run it.
